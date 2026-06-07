@@ -37,6 +37,7 @@ namespace DualMystery
         private bool picCharacterAnimFrame = false;
 
         private string dialogueText = null;
+        private bool isLastDialogue = false;
         private Timer tmrDialogue;
 
         // TCP 网络客户端
@@ -221,7 +222,7 @@ namespace DualMystery
 
             canvas = new PictureBox { Dock = DockStyle.Fill, BackColor = Color.FromArgb(24, 26, 30) };
             canvas.Paint += Canvas_Paint;
-            canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText)) { dialogueText = null; canvas.Invalidate(); } };
+            canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText) && !isLastDialogue) { dialogueText = null; isLastDialogue = false; canvas.Invalidate(); } };
             this.Controls.Add(canvas);
             lblHint.Parent = canvas;
             lblHint.BringToFront();
@@ -300,12 +301,22 @@ namespace DualMystery
 
         private void FormPlayerB_KeyDown(object sender, KeyEventArgs e)
         {
-            // 对话气泡显示时，按P关闭气泡而非交互
+            // 对话气泡显示时，按P关闭气泡（含最后一句）
             if (e.KeyCode == Keys.P)
             {
                 if (!string.IsNullOrEmpty(dialogueText))
                 {
+                    // 若为最后一句对话，重置对应NPC的对话进度，下次P从头开始
+                    if (isLastDialogue)
+                    {
+                        foreach (var npc in npcList)
+                        {
+                            if (npc.DialogueIndex == npc.Dialogues.Count - 1)
+                                npc.DialogueIndex = -1;
+                        }
+                    }
                     dialogueText = null;
+                    isLastDialogue = false;
                     canvas.Invalidate();
                     return;
                 }
@@ -332,34 +343,56 @@ namespace DualMystery
             }
         }
 
+        // NPC 交互检测距离（矩形外扩像素）
+        private const int NPC_INTERACT_RANGE = 30;
+        // 物品交互检测距离
+        private const int ITEM_INTERACT_RANGE = 25;
+
+        /// <summary>检查玩家是否在 NPC 交互范围内</summary>
+        private bool IsNearNPC(NPCData npc)
+        {
+            Rectangle r = npc.Rect;
+            r.Inflate(NPC_INTERACT_RANGE, NPC_INTERACT_RANGE);
+            return r.Contains((int)playerPos.X, (int)playerPos.Y);
+        }
+
+        /// <summary>检查玩家是否在物品交互范围内</summary>
+        private bool IsNearItem(SceneItem item)
+        {
+            Rectangle r = item.Rect;
+            r.Inflate(ITEM_INTERACT_RANGE, ITEM_INTERACT_RANGE);
+            return r.Contains((int)playerPos.X, (int)playerPos.Y);
+        }
+
         private void Interact()
         {
+            // 先检查NPC（矩形向外扩展 NPC_INTERACT_RANGE px）
             foreach (var npc in npcList)
             {
-                Rectangle r = npc.Rect;
-                r.Inflate(50, 50);
-                if (r.Contains((int)playerPos.X, (int)playerPos.Y))
+                if (IsNearNPC(npc))
                 {
                     ShowNPCDialogue(npc);
                     return;
                 }
             }
+            // 再检查物品（矩形向外扩展 ITEM_INTERACT_RANGE px）
             foreach (var item in sceneItems)
             {
-                Rectangle d = item.Rect;
-                d.Inflate(40, 40);
-                if (d.Contains((int)playerPos.X, (int)playerPos.Y))
+                if (IsNearItem(item))
                 {
                     HandleItemInteraction(item);
                     break;
                 }
             }
+            // 若走到这里说明范围内无可交互对象——播放轻微提示音
+            System.Media.SystemSounds.Beep.Play();
         }
 
         private void ShowNPCDialogue(NPCData npc)
         {
             npc.DialogueIndex = (npc.DialogueIndex + 1) % npc.Dialogues.Count;
             dialogueText = npc.Dialogues[npc.DialogueIndex];
+            isLastDialogue = (npc.DialogueIndex == npc.Dialogues.Count - 1);
             // 手动关闭，不再自动消失
             canvas.Invalidate();
             if (npc.Name.Contains("埃德加") && npc.DialogueIndex == 1)
@@ -372,6 +405,15 @@ namespace DualMystery
         {
             if (!lstTimeline.Items.Contains(entry))
                 lstTimeline.Items.Add(entry);
+        }
+
+        /// <summary>从本地缓存或 GameManager 静态列表查找线索（防止 StateSync 未到达时静默失败）</summary>
+        private Clue FindClueData(string clueId)
+        {
+            var cached = gameClient.ClueCache.FirstOrDefault(c => c.Id == clueId);
+            if (cached != null)
+                return new Clue { Id = cached.Id, Name = cached.Name, Description = cached.Description, IsDiscovered = cached.IsDiscovered, DiscoveredBy = cached.DiscoveredBy };
+            return GameManager.AllClues.FirstOrDefault(c => c.Id == clueId);
         }
 
         private void HandleItemInteraction(SceneItem item)
@@ -387,13 +429,15 @@ namespace DualMystery
             else
             {
                 gameClient.DiscoverClue(item.ClueId, "B");
-                var clue = gameClient.ClueCache.FirstOrDefault(c => c.Id == item.ClueId);
-                if (clue != null) MessageBox.Show(clue.Description, clue.Name);
-                if (item.ClueId == "photo") AddTimeline("照片背后写有数字19");
-                if (item.ClueId == "calendar") AddTimeline("日历圈起12月25日");
-                if (item.ClueId == "pawn_ticket") AddTimeline("当票签名Edgar Blackwood");
-                if (item.ClueId == "key") AddTimeline("发现一把小钥匙");
+                var clue = FindClueData(item.ClueId);
+                if (clue != null)
+                {
+                    if (!lstCluesB.Items.Contains(clue.Name)) lstCluesB.Items.Add(clue.Name);
+                    MessageBox.Show(clue.Description, clue.Name);
+                }
+                else System.Media.SystemSounds.Beep.Play();
             }
+            canvas.Invalidate();
         }
 
         // 场景绘制已迁移至 FormPlayerB_Paint.cs
@@ -431,8 +475,8 @@ namespace DualMystery
             btnAccept = new Button { Text = "接听", Size = new Size(60, 30), Location = new Point(10, 30) };
             btnDecline = new Button { Text = "拒绝", Size = new Size(60, 30), Location = new Point(80, 30) };
             pgbTimeout = new Panel { Size = new Size(160, 5), Location = new Point(0, 75), BackColor = Color.Brown };
-            btnAccept.Click += (s, e) => { PhoneManager.AcceptCall("B"); };
-            btnDecline.Click += (s, e) => { PhoneManager.DeclineCall("B"); pnlIncoming.Visible = false; StopRingingUI(); };
+            btnAccept.Click += (s, e) => { gameClient.AcceptCall("B"); };
+            btnDecline.Click += (s, e) => { gameClient.DeclineCall("B"); pnlIncoming.Visible = false; StopRingingUI(); };
             pnlIncoming.Controls.Add(lblIncoming); pnlIncoming.Controls.Add(btnAccept); pnlIncoming.Controls.Add(btnDecline); pnlIncoming.Controls.Add(pgbTimeout);
 
             this.Controls.Add(pnlIncoming);
@@ -450,7 +494,7 @@ namespace DualMystery
         }
 
         private void StopRingingUI() { tmrAnimate.Stop(); tmrTimeout.Stop(); tmrProgress.Stop(); isCallingOut = false; pnlIncoming.Visible = false; lblBubble.Visible = false; }
-        private void TmrTimeout_Tick(object sender, EventArgs e) { tmrTimeout.Stop(); PhoneManager.TimeoutCall(); }
+        private void TmrTimeout_Tick(object sender, EventArgs e) { tmrTimeout.Stop(); if (isCallingOut) gameClient.HangUp("B"); else gameClient.DeclineCall("B"); StopRingingUI(); }
         private void TmrProgress_Tick(object sender, EventArgs e) { float r = 1f - (float)(DateTime.Now - callStartTime).TotalSeconds / 3f; if (r < 0) r = 0; pgbTimeout.Width = (int)(160 * r); }
         private void PhoneManager_OnCallRequest(string caller, string callee) { if (InvokeRequired) { Invoke(new Action<string, string>(PhoneManager_OnCallRequest), caller, callee); return; } if (callee == "B") { pnlIncoming.Visible = true; callStartTime = DateTime.Now; tmrProgress.Start(); tmrTimeout.Start(); } }
         private void PhoneManager_OnCallEstablished() { if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEstablished)); return; } StopRingingUI(); currentChatForm = new FormChat("B", gameClient); currentChatForm.FormClosed += (s, e) => gameClient.HangUp("B"); currentChatForm.Show(); }

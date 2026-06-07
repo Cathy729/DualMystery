@@ -80,6 +80,7 @@
     </Compile>
     <Compile Include="FormPlayerA_Paint.cs">
       <DependentUpon>FormPlayerA.cs</DependentUpon>
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="FormPlayerB.cs">
       <SubType>Form</SubType>
@@ -89,6 +90,7 @@
     </Compile>
     <Compile Include="FormPlayerB_Paint.cs">
       <DependentUpon>FormPlayerB.cs</DependentUpon>
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="GameClient.cs" />
     <Compile Include="GameManager.cs" />

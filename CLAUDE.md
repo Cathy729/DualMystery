@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **阅读策略**: 除非文件被编辑过，否则不要重复阅读已读过的文件。
 - **输出风格**: 输出简洁明了，但推理过程必须详尽。
 - **代码规范**:
-  - 单个代码文件不超过400行，超长则拆分。
+  - 单个代码文件不超过500行，超长则拆分。已有超长文件（PixelIcons.cs 等）暂不拆分。
   - 嵌套层级不超过4层。
 
 ## GitHub 账户
@@ -19,20 +19,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Run
 
-```bash
-# Build the project (Debug configuration)
-/path/to/MSBuild.exe DualMystery.csproj /p:Configuration=Debug
+- .NET Framework 4.7.2 WinForms 应用程序，需要 Visual Studio 2017+ 或 .NET Framework 4.7.2 SDK 的 MSBuild。
+- 项目文件: `DualMystery.csproj` (ToolsVersion 15.0)。
+- 编译器使用 `csc_wrapper.cmd` 包装器调用 dotnet Roslyn 编译器以支持 C# 7.3 语法。如遇编译报错，优先检查 dotnet SDK 版本是否与包装器中的路径匹配。
 
-# Build and run
-/path/to/MSBuild.exe DualMystery.csproj /p:Configuration=Debug && bin/Debug/DualMystery.exe
+```bash
+# Compile Debug configuration
+MSBuild.exe DualMystery.csproj /p:Configuration=Debug
+
+# Compile and run
+MSBuild.exe DualMystery.csproj /p:Configuration=Debug && bin/Debug/DualMystery.exe
 
 # Clean build artifacts
-/path/to/MSBuild.exe DualMystery.csproj /t:Clean
+MSBuild.exe DualMystery.csproj /t:Clean
 ```
-
-- .NET Framework 4.7.2 WinForms application — requires Visual Studio 2017+ or MSBuild with the .NET Framework 4.7.2 SDK.
-- 构建时使用 csc_wrapper.cmd 调用 dotnet Roslyn 编译器以支持 C# 7.3 语法。
-- Project file: `DualMystery.csproj` (ToolsVersion 15.0).
 
 ## Architecture Overview
 
@@ -60,14 +60,14 @@ Program.cs  →  GameServer (后台线程 TCP 监听)
 Program.cs  →  GameServer.Start()  →  FormMain (菜单)
                                         →  FormPlayerA (书房, 左侧)
                                         →  FormPlayerB (走廊, 右侧)
-                                        →  FormChat (电话聊天 + 数据包可视化)
+                                        →  FormChat (电话聊天 + 线索分享)
                                         →  FormEnding (结局动画)
 ```
 
 - **FormMain** (`FormMain.cs`): 标题画面，两个按钮打开各自玩家界面。
 - **FormPlayerA** (`FormPlayerA.cs`): 书房场景（~450行）。包含场景物品（壁炉、吊灯、书架、窗户、地毯、尸体等）、NPC（贝蒂、格雷医生）、线索发现、电话系统、指认按钮。
 - **FormPlayerB** (`FormPlayerB.cs`): 走廊场景（~450行）。场景物品（壁灯、挂画、花瓶等）、NPC（埃德加、莫里斯）。
-- **FormChat** (`FormChat.cs`): 电话聊天窗口 + 数据包传输可视化（SEQ/ACK/校验和动画，模拟停等协议）。
+- **FormChat** (`FormChat.cs`): 纯聊天窗口，含发送消息、分享线索、挂断功能。
 - **FormEnding** (`FormEnding.cs`): 全屏结局动画，手动点击推进字幕，右上角有关闭按钮，Esc 退出。
 
 ### Core Services (Server-side)
@@ -102,4 +102,12 @@ Program.cs  →  GameServer.Start()  →  FormMain (菜单)
 ### 数据通信技术特性
 
 - **TCP 网络通信**: 所有游戏通信基于 TCP Socket（localhost），演示了客户端-服务器架构。
-- **数据包可视化**: 电话聊天中的消息被拆分为数据包显示（SEQ、数据块、校验和），模拟停等协议的发送-ACK-重传过程。
+
+## 已知问题
+
+- **TCP 事件链路断裂**: 由于所有交互通过 TCP JSON 消息路由，若某功能（线索不显示、电话接听按钮无响应等）失效，优先检查：
+  1. `GameClient.cs` 中的 `ProcessMessage()` JSON 消息路由是否正确解析服务端广播。
+  2. 窗体中的事件订阅是否已在构造函数中绑定且未在运行时被意外解绑。
+  3. `GameServer.cs` 中的事件代理（`OnClueDiscovered_Proxy`、`OnSafeUnlocked_Proxy`）是否仍指向正确的静态事件。
+  4. 客户端 `Invoke` 跨线程调用是否因 `InvokeRequired` 短路而未执行。
+- **PhoneManager 状态冲突**: 客户端按钮直接调用 `PhoneManager` 静态方法与 TCP 消息调用可能同时更改状态，优先确保所有电话操作走 `gameClient` TCP 路径。

@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace DualMystery
@@ -63,26 +64,83 @@ namespace DualMystery
                 g.DrawImage(vase, vaseX, vaseY, 32, 40);
             g.FillRectangle(new SolidBrush(Color.FromArgb(80, 60, 40)), vaseX - 4, vaseY + 38, 40, 10);
 
-            foreach (var item in sceneItems)
+            using (Font hintFont = new Font("Georgia", 7, FontStyle.Bold))
+            using (SolidBrush hintBrush = new SolidBrush(Color.Yellow))
+            using (SolidBrush doneBrush = new SolidBrush(Color.Gray))
             {
-                int sx = item.Rect.X - (int)ox, sy = item.Rect.Y - (int)oy;
-                if (sx + item.Rect.Width < 0 || sx > vw || sy + item.Rect.Height < 0 || sy > vh) continue;
-                if (item.Icon != null) g.DrawImage(item.Icon, sx, sy, item.Rect.Width, item.Rect.Height);
-                else { g.FillRectangle(Brushes.DarkOliveGreen, sx, sy, item.Rect.Width, item.Rect.Height); g.DrawRectangle(Pens.Black, sx, sy, item.Rect.Width, item.Rect.Height); }
-                g.DrawString(item.Name, itemFont, Brushes.White, sx, sy - 12);
+                foreach (var item in sceneItems)
+                {
+                    int sx = item.Rect.X - (int)ox, sy = item.Rect.Y - (int)oy;
+                    if (sx + item.Rect.Width < 0 || sx > vw || sy + item.Rect.Height < 0 || sy > vh) continue;
+                    if (item.Icon != null) g.DrawImage(item.Icon, sx, sy, item.Rect.Width, item.Rect.Height);
+                    else { g.FillRectangle(Brushes.DarkOliveGreen, sx, sy, item.Rect.Width, item.Rect.Height); g.DrawRectangle(Pens.Black, sx, sy, item.Rect.Width, item.Rect.Height); }
+                    g.DrawString(item.Name, itemFont, Brushes.White, sx, sy - 12);
+
+                    // 交互距离视觉提示
+                    if (IsNearItem(item))
+                    {
+                        bool discovered = false;
+                        if (!string.IsNullOrEmpty(item.ClueId))
+                        {
+                            var gmClue = GameManager.AllClues.FirstOrDefault(c => c.Id == item.ClueId);
+                            if (gmClue != null && gmClue.IsDiscovered) discovered = true;
+                        }
+                        string hintText;
+                        Color hintColor;
+                        if (discovered)
+                        {
+                            hintText = "（已调查）";
+                            hintColor = Color.Gray;
+                        }
+                        else if (item.IsPhone)
+                        {
+                            hintText = "按 P 拨打电话";
+                            hintColor = Color.Cyan;
+                        }
+                        else
+                        {
+                            hintText = "按 P 调查";
+                            hintColor = Color.Yellow;
+                        }
+                        SizeF hintSize = g.MeasureString(hintText, hintFont);
+                        float hintX = sx + item.Rect.Width / 2 - hintSize.Width / 2;
+                        float hintY = sy - 24;
+                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                            hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
+                        hintBrush.Color = hintColor;
+                        g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);
+                    }
+                }
             }
 
-            foreach (var npc in npcList)
+            using (Font hintFont = new Font("Georgia", 7, FontStyle.Bold))
+            using (SolidBrush hintBrush = new SolidBrush(Color.Cyan))
             {
-                int sx = npc.Rect.X - (int)ox, sy = npc.Rect.Y - (int)oy;
-                if (npc.Icon != null) g.DrawImage(npc.Icon, sx, sy, npc.Rect.Width, npc.Rect.Height);
-                g.DrawString(npc.Name, itemFont, Brushes.Yellow, sx, sy - 12);
-                if (npc.Name.Contains("埃德加"))
-                    using (Bitmap wine = PixelIcons.CreateWineGlass())
-                        g.DrawImage(wine, sx + 40, sy + 14, 18, 22);
-                else if (npc.Name.Contains("莫里斯"))
-                    using (Bitmap keys = PixelIcons.CreateKeyRing())
-                        g.DrawImage(keys, sx - 20, sy + 12, 20, 22);
+                foreach (var npc in npcList)
+                {
+                    int sx = npc.Rect.X - (int)ox, sy = npc.Rect.Y - (int)oy;
+                    if (npc.Icon != null) g.DrawImage(npc.Icon, sx, sy, npc.Rect.Width, npc.Rect.Height);
+                    g.DrawString(npc.Name, itemFont, Brushes.Yellow, sx, sy - 12);
+                    if (npc.Name.Contains("埃德加"))
+                        using (Bitmap wine = PixelIcons.CreateWineGlass())
+                            g.DrawImage(wine, sx + 40, sy + 14, 18, 22);
+                    else if (npc.Name.Contains("莫里斯"))
+                        using (Bitmap keys = PixelIcons.CreateKeyRing())
+                            g.DrawImage(keys, sx - 20, sy + 12, 20, 22);
+
+                    // 交互距离视觉提示
+                    if (IsNearNPC(npc))
+                    {
+                        string hintText = "按 P 对话";
+                        SizeF hintSize = g.MeasureString(hintText, hintFont);
+                        float hintX = sx + npc.Rect.Width / 2 - hintSize.Width / 2;
+                        float hintY = sy - 24;
+                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                            hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
+                        hintBrush.Color = Color.Cyan;
+                        g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);
+                    }
+                }
             }
 
             int px = (int)(playerPos.X - ox) - 24;
@@ -99,15 +157,19 @@ namespace DualMystery
         {
             if (string.IsNullOrEmpty(dialogueText)) return;
             const int maxBubbleWidth = 280;
-            string hint = "鼠标单击 / 按P继续对话";
-            using (Font hintFont = new Font("Georgia", 7f, FontStyle.Italic))
+            string hint = isLastDialogue ? "鼠标单击 / 按P关闭对话" : "鼠标单击 / 按P继续对话";
+            using (Font hintFont = new Font("Georgia", 7f, FontStyle.Regular))
             {
                 SizeF textSize = g.MeasureString(dialogueText, dialogueFont, maxBubbleWidth);
-                SizeF hintSize = g.MeasureString(hint, hintFont, maxBubbleWidth);
-                float bubbleW = Math.Max(textSize.Width, hintSize.Width) + 12;
+                float bubbleW = textSize.Width + 12;
                 float textH = textSize.Height + 4;
+                float bubbleH = textH + 6;
+                // 始终显示提示（最后一句提示"关闭"）
+                SizeF hintSize = g.MeasureString(hint, hintFont, maxBubbleWidth);
+                bubbleW = Math.Max(bubbleW, hintSize.Width + 12);
                 float hintH = hintSize.Height + 2;
-                float bubbleH = textH + hintH + 6;
+                bubbleH += hintH;
+
                 float bubbleX = px - 5;
                 float bubbleY = py - bubbleH - 10;
                 if (bubbleX < 0) bubbleX = 0;
@@ -117,7 +179,7 @@ namespace DualMystery
                 g.DrawRectangle(Pens.Black, bubbleX, bubbleY, bubbleW, bubbleH);
                 g.DrawString(dialogueText, dialogueFont, Brushes.Black,
                     new RectangleF(bubbleX + 5, bubbleY + 2, bubbleW - 10, textH));
-                g.DrawString(hint, hintFont, Brushes.Gray,
+                g.DrawString(hint, hintFont, Brushes.DarkRed,
                     new RectangleF(bubbleX + 5, bubbleY + 2 + textH, bubbleW - 10, hintH));
             }
         }

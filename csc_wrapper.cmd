@@ -1,2 +1,4 @@
 @echo off
-dotnet exec "C:\Program Files\dotnet\sdk\9.0.312\Roslyn\bincore\csc.dll" %*
+set CSC_DLL=C:\Program Files\dotnet\sdk\10.0.300\Roslyn\bincore\csc.dll
+if not exist "%CSC_DLL%" exit /b 1
+dotnet exec "%CSC_DLL%" %*

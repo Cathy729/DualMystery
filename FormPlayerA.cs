@@ -46,6 +46,7 @@ namespace DualMystery
 
         // 对话气泡
         private string dialogueText = null;
+        private bool isLastDialogue = false;
         private Timer tmrDialogue;
 
         // TCP 网络客户端
@@ -283,7 +284,7 @@ namespace DualMystery
                 BackColor = Color.FromArgb(20, 30, 34)
             };
             canvas.Paint += Canvas_Paint;
-            canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText)) { dialogueText = null; canvas.Invalidate(); } };
+            canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText) && !isLastDialogue) { dialogueText = null; isLastDialogue = false; canvas.Invalidate(); } };
             this.Controls.Add(canvas);
             lblHint.Parent = canvas;
             lblHint.BringToFront();
@@ -366,12 +367,22 @@ namespace DualMystery
 
         private void FormPlayerA_KeyDown(object sender, KeyEventArgs e)
         {
-            // 对话气泡显示时，按E关闭气泡而非交互
+            // 对话气泡显示时，按E关闭气泡（含最后一句）
             if (e.KeyCode == Keys.E)
             {
                 if (!string.IsNullOrEmpty(dialogueText))
                 {
+                    // 若为最后一句对话，重置对应NPC的对话进度，下次E从头开始
+                    if (isLastDialogue)
+                    {
+                        foreach (var npc in npcList)
+                        {
+                            if (npc.DialogueIndex == npc.Dialogues.Count - 1)
+                                npc.DialogueIndex = -1;
+                        }
+                    }
                     dialogueText = null;
+                    isLastDialogue = false;
                     canvas.Invalidate();
                     return;
                 }
@@ -399,36 +410,56 @@ namespace DualMystery
         }
 
         // ==================== 交互检测 ====================
+        // NPC 交互检测距离（矩形外扩像素）
+        private const int NPC_INTERACT_RANGE = 30;
+        // 物品交互检测距离
+        private const int ITEM_INTERACT_RANGE = 25;
+
+        /// <summary>检查玩家是否在 NPC 交互范围内</summary>
+        private bool IsNearNPC(NPCData npc)
+        {
+            Rectangle r = npc.Rect;
+            r.Inflate(NPC_INTERACT_RANGE, NPC_INTERACT_RANGE);
+            return r.Contains((int)playerPos.X, (int)playerPos.Y);
+        }
+
+        /// <summary>检查玩家是否在物品交互范围内</summary>
+        private bool IsNearItem(SceneItem item)
+        {
+            Rectangle r = item.Rect;
+            r.Inflate(ITEM_INTERACT_RANGE, ITEM_INTERACT_RANGE);
+            return r.Contains((int)playerPos.X, (int)playerPos.Y);
+        }
+
         private void Interact()
         {
-            // 先检查NPC
+            // 先检查NPC（矩形向外扩展 NPC_INTERACT_RANGE px）
             foreach (var npc in npcList)
             {
-                Rectangle r = npc.Rect;
-                r.Inflate(50, 50);
-                if (r.Contains((int)playerPos.X, (int)playerPos.Y))
+                if (IsNearNPC(npc))
                 {
                     ShowNPCDialogue(npc);
                     return;
                 }
             }
-            // 再检查物品
+            // 再检查物品（矩形向外扩展 ITEM_INTERACT_RANGE px）
             foreach (var item in sceneItems)
             {
-                Rectangle detectRect = item.Rect;
-                detectRect.Inflate(40, 40);
-                if (detectRect.Contains((int)playerPos.X, (int)playerPos.Y))
+                if (IsNearItem(item))
                 {
                     HandleItemInteraction(item);
                     break;
                 }
             }
+            // 若走到这里说明范围内无可交互对象——播放轻微提示音
+            System.Media.SystemSounds.Beep.Play();
         }
 
         private void ShowNPCDialogue(NPCData npc)
         {
             npc.DialogueIndex = (npc.DialogueIndex + 1) % npc.Dialogues.Count;
             dialogueText = npc.Dialogues[npc.DialogueIndex];
+            isLastDialogue = (npc.DialogueIndex == npc.Dialogues.Count - 1);
             // 手动关闭，不再自动消失
             canvas.Invalidate();
 
@@ -445,37 +476,66 @@ namespace DualMystery
                 lstTimeline.Items.Add(entry);
         }
 
+        /// <summary>从本地缓存或 GameManager 静态列表查找线索（防止 StateSync 未到达时静默失败）</summary>
+        private Clue FindClueData(string clueId)
+        {
+            // 优先从本地同步缓存获取
+            var cached = gameClient.ClueCache.FirstOrDefault(c => c.Id == clueId);
+            if (cached != null)
+                return new Clue { Id = cached.Id, Name = cached.Name, Description = cached.Description, IsDiscovered = cached.IsDiscovered, DiscoveredBy = cached.DiscoveredBy };
+            // 缓存未同步时直接从 GameManager 静态列表获取（同进程内可访问）
+            return GameManager.AllClues.FirstOrDefault(c => c.Id == clueId);
+        }
+
         private void HandleItemInteraction(SceneItem item)
         {
             switch (item.Type)
             {
                 case ItemType.Normal:
                     gameClient.DiscoverClue(item.ClueId, "A");
-                    var clue = gameClient.ClueCache.FirstOrDefault(c => c.Id == item.ClueId);
-                    if (clue != null) MessageBox.Show(clue.Description, clue.Name);
-                    // 添加对应时间线
-                    if (item.ClueId == "knife") AddTimeline("23:30 - 凶器匕首，刻有字母M");
-                    if (item.ClueId == "handkerchief") AddTimeline("案发后 - 带血手帕，绣E.B.");
+                    {
+                        var clue = FindClueData(item.ClueId);
+                        if (clue != null)
+                        {
+                            if (!lstCluesA.Items.Contains(clue.Name)) lstCluesA.Items.Add(clue.Name);
+                            MessageBox.Show(clue.Description, clue.Name);
+                        }
+                        else System.Media.SystemSounds.Beep.Play();
+                    }
                     break;
                 case ItemType.Desk:
-                    if (gameClient.IsClueDiscovered("key"))
                     {
-                        string newId = "diary_page";
-                        gameClient.DiscoverClue(newId, "A");
-                        var diary = gameClient.ClueCache.FirstOrDefault(c => c.Id == newId);
-                        if (diary != null) MessageBox.Show(diary.Description, diary.Name);
-                        AddTimeline("23:00 - 莫里斯偷窃古董被死者发现");
+                        bool hasKey = gameClient.IsClueDiscovered("key")
+                                       || GameManager.AllClues.Any(c => c.Id == "key" && c.IsDiscovered);
+                        if (hasKey)
+                        {
+                            string newId = "diary_page";
+                            gameClient.DiscoverClue(newId, "A");
+                            var diary = FindClueData(newId);
+                            if (diary != null)
+                            {
+                                if (!lstCluesA.Items.Contains(diary.Name)) lstCluesA.Items.Add(diary.Name);
+                                MessageBox.Show(diary.Description, diary.Name);
+                            }
+                            AddTimeline("23:00 - 莫里斯偷窃古董被死者发现");
+                        }
+                        else MessageBox.Show("书桌抽屉锁着，需要一把细小钥匙");
                     }
-                    else MessageBox.Show("书桌抽屉锁着，需要一把细小钥匙");
                     break;
                 case ItemType.Safe:
-                    if (gameClient.IsClueDiscovered("bible_note") && gameClient.IsClueDiscovered("calendar"))
                     {
-                        string input = PromptInputBox("请输入4位数字密码：", "保险箱");
-                        if (input == "1225") gameClient.UnlockSafe();
-                        else if (!string.IsNullOrEmpty(input)) MessageBox.Show("密码错误", "保险箱");
+                        bool hasBible = gameClient.IsClueDiscovered("bible_note")
+                                        || GameManager.AllClues.Any(c => c.Id == "bible_note" && c.IsDiscovered);
+                        bool hasCalendar = gameClient.IsClueDiscovered("calendar")
+                                           || GameManager.AllClues.Any(c => c.Id == "calendar" && c.IsDiscovered);
+                        if (hasBible && hasCalendar)
+                        {
+                            string input = PromptInputBox("请输入4位数字密码：", "保险箱");
+                            if (input == "1225") gameClient.UnlockSafe();
+                            else if (!string.IsNullOrEmpty(input)) MessageBox.Show("密码错误", "保险箱");
+                        }
+                        else MessageBox.Show("需要更多线索");
                     }
-                    else MessageBox.Show("需要更多线索");
                     break;
                 case ItemType.Phone:
                     gameClient.RequestCall("A");
@@ -485,6 +545,8 @@ namespace DualMystery
                     callStartTime = DateTime.Now;
                     break;
             }
+            // 交互后刷新场景，更新“已调查”状态
+            canvas.Invalidate();
         }
 
         // 场景绘制已迁移至 FormPlayerA_Paint.cs
@@ -525,8 +587,8 @@ namespace DualMystery
             btnAccept = new Button { Text = "接听", Size = new Size(60, 30), Location = new Point(10, 30) };
             btnDecline = new Button { Text = "拒绝", Size = new Size(60, 30), Location = new Point(80, 30) };
             pgbTimeout = new Panel { Size = new Size(160, 5), Location = new Point(0, 75), BackColor = Color.Brown };
-            btnAccept.Click += (s, e) => { PhoneManager.AcceptCall("A"); };
-            btnDecline.Click += (s, e) => { PhoneManager.DeclineCall("A"); pnlIncoming.Visible = false; StopRingingUI(); };
+            btnAccept.Click += (s, e) => { gameClient.AcceptCall("A"); };
+            btnDecline.Click += (s, e) => { gameClient.DeclineCall("A"); pnlIncoming.Visible = false; StopRingingUI(); };
             pnlIncoming.Controls.Add(lblIncoming);
             pnlIncoming.Controls.Add(btnAccept);
             pnlIncoming.Controls.Add(btnDecline);
@@ -554,7 +616,7 @@ namespace DualMystery
         }
 
         private void StopRingingUI() { tmrAnimate.Stop(); tmrTimeout.Stop(); tmrProgress.Stop(); isCallingOut = false; pnlIncoming.Visible = false; lblBubble.Visible = false; }
-        private void TmrTimeout_Tick(object sender, EventArgs e) { tmrTimeout.Stop(); PhoneManager.TimeoutCall(); }
+        private void TmrTimeout_Tick(object sender, EventArgs e) { tmrTimeout.Stop(); if (isCallingOut) gameClient.HangUp("A"); else gameClient.DeclineCall("A"); StopRingingUI(); }
         private void TmrProgress_Tick(object sender, EventArgs e) { float ratio = 1f - (float)(DateTime.Now - callStartTime).TotalSeconds / 3f; if (ratio < 0) ratio = 0; pgbTimeout.Width = (int)(160 * ratio); }
 
         private void PhoneManager_OnCallRequest(string caller, string callee)

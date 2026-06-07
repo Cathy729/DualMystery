@@ -132,10 +132,34 @@ namespace DualMystery
                         break;
 
                     case "ClueDiscovered":
-                        OnClueDiscovered?.Invoke(data.Get("ClueId"), data.Get("Player"));
-                        // 更新本地缓存
-                        var ce = ClueCache.FirstOrDefault(c => c.Id == data.Get("ClueId"));
-                        if (ce != null) { ce.IsDiscovered = true; ce.DiscoveredBy = data.Get("Player"); }
+                        {
+                            string cId = data.Get("ClueId");
+                            string cPlayer = data.Get("Player");
+                            OnClueDiscovered?.Invoke(cId, cPlayer);
+                            // 更新本地缓存
+                            var ce = ClueCache.FirstOrDefault(c => c.Id == cId);
+                            if (ce != null)
+                            {
+                                ce.IsDiscovered = true;
+                                ce.DiscoveredBy = cPlayer;
+                            }
+                            else
+                            {
+                                // 动态添加的线索（如遗嘱、举报信）不在初始 StateSync 中，从 GameManager 补登
+                                var gmClue = GameManager.AllClues.FirstOrDefault(gc => gc.Id == cId);
+                                if (gmClue != null)
+                                {
+                                    ClueCache.Add(new ClueCacheEntry
+                                    {
+                                        Id = gmClue.Id,
+                                        Name = gmClue.Name,
+                                        Description = gmClue.Description,
+                                        IsDiscovered = true,
+                                        DiscoveredBy = cPlayer
+                                    });
+                                }
+                            }
+                        }
                         break;
 
                     case "CallRequest":
@@ -260,7 +284,41 @@ namespace DualMystery
 
         public List<ClueCacheEntry> GetMyClues(string playerId)
         {
-            return ClueCache.FindAll(c => c.IsDiscovered && c.DiscoveredBy == playerId);
+            // 先从缓存中获取
+            var result = ClueCache.FindAll(c => c.IsDiscovered && c.DiscoveredBy == playerId);
+
+            // 补充 GameManager 中已发现但缓存未同步的线索（动态线索 + 时序兜底）
+            var cachedIds = new HashSet<string>(ClueCache.Select(c => c.Id));
+            foreach (var gmClue in GameManager.AllClues)
+            {
+                if (gmClue.IsDiscovered && gmClue.DiscoveredBy == playerId)
+                {
+                    if (!cachedIds.Contains(gmClue.Id))
+                    {
+                        // 完全缺失的条目（如动态添加的遗嘱、举报信）
+                        result.Add(new ClueCacheEntry
+                        {
+                            Id = gmClue.Id,
+                            Name = gmClue.Name,
+                            Description = gmClue.Description,
+                            IsDiscovered = true,
+                            DiscoveredBy = playerId
+                        });
+                    }
+                    else
+                    {
+                        // 条目存在但缓存中 IsDiscovered 尚未更新（TCP 广播时序滞后）
+                        var existing = ClueCache.First(c => c.Id == gmClue.Id);
+                        if (!existing.IsDiscovered)
+                        {
+                            existing.IsDiscovered = true;
+                            existing.DiscoveredBy = playerId;
+                            result.Add(existing);
+                        }
+                    }
+                }
+            }
+            return result;
         }
 
         public List<ClueCacheEntry> GetAllDiscoveredClues()

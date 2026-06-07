@@ -12,6 +12,9 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <LangVersion>7.3</LangVersion>
+    <CscToolPath>D:\个人文件\同济大学\大二下\数据通讯技术\大作业\DualMystery\DualMystery</CscToolPath>
+    <CscToolExe>csc_wrapper.cmd</CscToolExe>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -42,6 +45,8 @@
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -73,13 +78,21 @@
     <Compile Include="FormPlayerA.Designer.cs">
       <DependentUpon>FormPlayerA.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormPlayerA_Paint.cs">
+      <DependentUpon>FormPlayerA.cs</DependentUpon>
+    </Compile>
     <Compile Include="FormPlayerB.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="FormPlayerB.Designer.cs">
       <DependentUpon>FormPlayerB.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormPlayerB_Paint.cs">
+      <DependentUpon>FormPlayerB.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GameClient.cs" />
     <Compile Include="GameManager.cs" />
+    <Compile Include="GameServer.cs" />
     <Compile Include="PhoneManager.cs" />
     <Compile Include="PixelIcons.cs" />
     <Compile Include="Program.cs" />

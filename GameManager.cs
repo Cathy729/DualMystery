@@ -48,6 +48,7 @@ namespace DualMystery
         {
             // 书房线索
             AllClues.Add(new Clue { Id = "knife", Name = "凶器刀", Description = "一把锋利的短刀，刀柄刻着模糊的字母“M”。" });
+            AllClues.Add(new Clue { Id = "diary_page", Name = "日记残页", Description = "你用那把细小钥匙打开了抽屉，找到一张日记残页：霍华德发现莫里斯偷窃古董，准备揭发。" });
             AllClues.Add(new Clue { Id = "burnt_letter", Name = "烧毁的信", Description = "信纸边缘烧焦，残留文字：“…今晚别告诉任何人，否则你的秘密…”" });
             AllClues.Add(new Clue { Id = "bible_note", Name = "圣经暗格纸条", Description = "一张泛黄的纸条，写着：“密码是老爷最厌恶的日子。”" });
             AllClues.Add(new Clue { Id = "handkerchief", Name = "带血手帕", Description = "白色手帕上绣着两个字母“E.B.”，沾有血迹。" });

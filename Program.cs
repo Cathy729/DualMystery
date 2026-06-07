@@ -16,7 +16,15 @@ namespace DualMystery
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            // 启动 TCP 游戏服务器（后台线程）
+            var server = new GameServer();
+            server.Start();
+
             Application.Run(new FormMain());
+
+            // 主窗口关闭后停止服务器
+            server.Stop();
         }
     }
 }

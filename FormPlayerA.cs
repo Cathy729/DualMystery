@@ -48,9 +48,12 @@ namespace DualMystery
         private string dialogueText = null;
         private Timer tmrDialogue;
 
+        // TCP 网络客户端
+        private GameClient gameClient;
+
         // 缓存 GDI 对象，避免 Paint 中反复创建
-        private Font itemFont = new Font("Georgia", 7);
-        private Font dialogueFont = new Font("Georgia", 8);
+        private Font itemFont = new Font("Georgia", 9);
+        private Font dialogueFont = new Font("Georgia", 10);
         private SolidBrush bgBrush = new SolidBrush(Color.FromArgb(30, 30, 34));
 
         // 装饰动画
@@ -72,6 +75,18 @@ namespace DualMystery
             chandelierFrames = new Bitmap[3];
             var chSrc = PixelIcons.CreateChandelierFrames();
             for (int i = 0; i < 3; i++) chandelierFrames[i] = new Bitmap(chSrc[i], 48, 48);
+            // TCP 客户端初始化
+            gameClient = new GameClient();
+            gameClient.OnClueDiscovered += GameClient_OnClueDiscovered;
+            gameClient.OnSafeUnlocked += GameClient_OnSafeUnlocked;
+            gameClient.OnAccusationResult += GameClient_OnAccusationResult;
+            gameClient.OnCallRequest += PhoneManager_OnCallRequest;
+            gameClient.OnCallEstablished += PhoneManager_OnCallEstablished;
+            gameClient.OnCallEnded += PhoneManager_OnCallEnded;
+            gameClient.OnRingTimeout += PhoneManager_OnRingTimeout;
+            gameClient.OnError += (msg) => Invoke(new Action(() => MessageBox.Show(msg, "网络错误")));
+            gameClient.Connect("127.0.0.1", GameServer.PORT, "A");
+
             this.Load += FormPlayerA_Load;
             this.FormClosing += FormPlayerA_FormClosing;
             this.KeyDown += FormPlayerA_KeyDown;
@@ -168,10 +183,10 @@ namespace DualMystery
             Label lblTitle = new Label
             {
                 Text = "📖 书房",
-                Font = new Font("Georgia", 14f),
+                Font = new Font("Georgia", 16f),
                 ForeColor = Color.FromArgb(201, 169, 110),
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 40,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblTitle);
@@ -200,12 +215,12 @@ namespace DualMystery
             // 剧情简介
             Label lblStory = new Label
             {
-                Text = "📜 书房侦探\n尸体、刀、书桌、保险箱…\n询问贝蒂和格雷医生。",
+                Text = "📖 书房侦探\n尸体、刀、书桌、保险箱…\n询问贝蒂和格雷医生。",
                 Dock = DockStyle.Top,
-                Height = 50,
+                Height = 60,
                 BackColor = Color.FromArgb(35, 40, 38),
                 ForeColor = Color.LightGray,
-                Font = new Font("Georgia", 7f)
+                Font = new Font("Georgia", 9f)
             };
             rightPanel.Controls.Add(lblStory);
 
@@ -241,7 +256,7 @@ namespace DualMystery
                 BackColor = Color.FromArgb(30, 42, 46),
                 ForeColor = Color.FromArgb(201, 169, 110),
                 BorderStyle = BorderStyle.None,
-                Font = new Font("Georgia", 7f)
+                Font = new Font("Georgia", 9f)
             };
             gbTimeline.Controls.Add(lstTimeline);
             rightPanel.Controls.Add(gbTimeline);
@@ -255,7 +270,7 @@ namespace DualMystery
                 BackColor = Color.FromArgb(184, 115, 51),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Georgia", 10f, FontStyle.Bold)
+                Font = new Font("Georgia", 11f, FontStyle.Bold)
             };
             btnAccuse.Click += BtnAccuse_Click;
             rightPanel.Controls.Add(btnAccuse);
@@ -268,6 +283,7 @@ namespace DualMystery
                 BackColor = Color.FromArgb(20, 30, 34)
             };
             canvas.Paint += Canvas_Paint;
+            canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText)) { dialogueText = null; canvas.Invalidate(); } };
             this.Controls.Add(canvas);
             lblHint.Parent = canvas;
             lblHint.BringToFront();
@@ -350,13 +366,24 @@ namespace DualMystery
 
         private void FormPlayerA_KeyDown(object sender, KeyEventArgs e)
         {
+            // 对话气泡显示时，按E关闭气泡而非交互
+            if (e.KeyCode == Keys.E)
+            {
+                if (!string.IsNullOrEmpty(dialogueText))
+                {
+                    dialogueText = null;
+                    canvas.Invalidate();
+                    return;
+                }
+                Interact();
+                return;
+            }
             switch (e.KeyCode)
             {
                 case Keys.W: moveUp = true; break;
                 case Keys.S: moveDown = true; break;
                 case Keys.A: moveLeft = true; break;
                 case Keys.D: moveRight = true; break;
-                case Keys.E: Interact(); break;
             }
         }
 
@@ -402,8 +429,7 @@ namespace DualMystery
         {
             npc.DialogueIndex = (npc.DialogueIndex + 1) % npc.Dialogues.Count;
             dialogueText = npc.Dialogues[npc.DialogueIndex];
-            tmrDialogue.Stop();
-            tmrDialogue.Start();
+            // 手动关闭，不再自动消失
             canvas.Invalidate();
 
             // 根据对话添加时间线
@@ -424,43 +450,35 @@ namespace DualMystery
             switch (item.Type)
             {
                 case ItemType.Normal:
-                    GameManager.DiscoverClue(item.ClueId, "A");
-                    var clue = GameManager.AllClues.FirstOrDefault(c => c.Id == item.ClueId);
+                    gameClient.DiscoverClue(item.ClueId, "A");
+                    var clue = gameClient.ClueCache.FirstOrDefault(c => c.Id == item.ClueId);
                     if (clue != null) MessageBox.Show(clue.Description, clue.Name);
                     // 添加对应时间线
                     if (item.ClueId == "knife") AddTimeline("23:30 - 凶器匕首，刻有字母M");
                     if (item.ClueId == "handkerchief") AddTimeline("案发后 - 带血手帕，绣E.B.");
                     break;
                 case ItemType.Desk:
-                    var keyClue = GameManager.AllClues.FirstOrDefault(c => c.Id == "key");
-                    if (keyClue != null && keyClue.IsDiscovered)
+                    if (gameClient.IsClueDiscovered("key"))
                     {
                         string newId = "diary_page";
-                        var diary = GameManager.AllClues.FirstOrDefault(c => c.Id == newId);
-                        if (diary == null)
-                        {
-                            diary = new Clue { Id = newId, Name = "日记残页", Description = "你用那把细小钥匙打开了抽屉，找到一张日记残页：霍华德发现莫里斯偷窃古董，准备揭发。" };
-                            GameManager.AllClues.Add(diary);
-                        }
-                        GameManager.DiscoverClue(newId, "A");
-                        MessageBox.Show(diary.Description, diary.Name);
+                        gameClient.DiscoverClue(newId, "A");
+                        var diary = gameClient.ClueCache.FirstOrDefault(c => c.Id == newId);
+                        if (diary != null) MessageBox.Show(diary.Description, diary.Name);
                         AddTimeline("23:00 - 莫里斯偷窃古董被死者发现");
                     }
                     else MessageBox.Show("书桌抽屉锁着，需要一把细小钥匙");
                     break;
                 case ItemType.Safe:
-                    var p1 = GameManager.AllClues.FirstOrDefault(c => c.Id == "bible_note");
-                    var p2 = GameManager.AllClues.FirstOrDefault(c => c.Id == "calendar");
-                    if (p1?.IsDiscovered == true && p2?.IsDiscovered == true)
+                    if (gameClient.IsClueDiscovered("bible_note") && gameClient.IsClueDiscovered("calendar"))
                     {
                         string input = PromptInputBox("请输入4位数字密码：", "保险箱");
-                        if (input == "1225") GameManager.UnlockSafe();
+                        if (input == "1225") gameClient.UnlockSafe();
                         else if (!string.IsNullOrEmpty(input)) MessageBox.Show("密码错误", "保险箱");
                     }
                     else MessageBox.Show("需要更多线索");
                     break;
                 case ItemType.Phone:
-                    PhoneManager.RequestCall("A");
+                    gameClient.RequestCall("A");
                     isCallingOut = true;
                     tmrAnimate.Start();
                     tmrTimeout.Start();
@@ -469,172 +487,7 @@ namespace DualMystery
             }
         }
 
-        // ==================== 场景绘制 ====================
-        private void Canvas_Paint(object sender, PaintEventArgs e)
-        {
-            Graphics g = e.Graphics;
-            g.InterpolationMode = InterpolationMode.NearestNeighbor;
-            g.PixelOffsetMode = PixelOffsetMode.Half;
-            int vw = canvas.Width, vh = canvas.Height;
-            float ox = playerPos.X - vw / 2f;
-            float oy = playerPos.Y - vh / 2f;
-            ox = Math.Max(0, Math.Min(ox, mapWidth - vw));
-            oy = Math.Max(0, Math.Min(oy, mapHeight - vh));
-
-            // ---- 背景 ----
-            g.FillRectangle(new SolidBrush(Color.FromArgb(45, 40, 36)), 0, 0, mapWidth, mapHeight);
-            // 深色墙裙（下半墙）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(35, 30, 28)), 0, 350 - (int)oy, mapWidth, 450);
-            // 墙裙线
-            g.DrawLine(new Pen(Color.FromArgb(80, 60, 40), 2), 0, 350 - (int)oy, mapWidth, 350 - (int)oy);
-
-            // ---- 地毯（暗红色打底+花纹） ----
-            int carpetY = 520 - (int)oy;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(120, 30, 30)), 290 - (int)ox, carpetY, 620, 30);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(80, 20, 20)), 290 - (int)ox, carpetY, 620, 3);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(80, 20, 20)), 290 - (int)ox, carpetY + 27, 620, 3);
-            using (Bitmap carpetTile = PixelIcons.CreateCarpet())
-            {
-                for (int cx = 300; cx < 900; cx += 32)
-                    g.DrawImage(carpetTile, cx - (int)ox, carpetY, 32, 24);
-            }
-
-            // ---- 壁炉（左墙，带动画） ----
-            int fireplaceX = 80 - (int)ox, fireplaceY = 280 - (int)oy;
-            int fpFrameIdx = (animFrame / 30) % 3;
-            if (fireplaceFrames != null && fireplaceFrames[fpFrameIdx] != null)
-                g.DrawImage(fireplaceFrames[fpFrameIdx], fireplaceX, fireplaceY, 80, 80);
-            // 壁炉台装饰
-            g.FillRectangle(new SolidBrush(Color.FromArgb(90, 60, 30)), fireplaceX + 60, fireplaceY + 30, 30, 4);
-
-            // ---- 吊灯（顶部中央，带摆动） ----
-            int chandelierX = 500 - (int)ox, chandelierY = 10 - (int)oy;
-            int chFrameIdx = (animFrame / 20) % 3;
-            if (chandelierFrames != null && chandelierFrames[chFrameIdx] != null)
-                g.DrawImage(chandelierFrames[chFrameIdx], chandelierX, chandelierY, 60, 60);
-
-            // ---- 书架（更丰富的书籍颜色） ----
-            int shelfX = 200 - (int)ox, shelfY = 150 - (int)oy;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(100, 70, 50)), shelfX, shelfY, 80, 200);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(120, 80, 55)), shelfX, shelfY, 80, 4);
-            Color[] bookColors = { Color.DarkRed, Color.DarkGreen, Color.DarkBlue, Color.SaddleBrown, Color.DarkGoldenrod, Color.Indigo };
-            for (int row = 0; row < 4; row++)
-            {
-                int by = shelfY + 10 + row * 45;
-                for (int col = 0; col < 8; col++)
-                {
-                    int bh = 35 + (row * 7) % 10;
-                    using (Brush bb = new SolidBrush(bookColors[(row * 3 + col) % bookColors.Length]))
-                        g.FillRectangle(bb, shelfX + 4 + col * 9, by, 8, bh);
-                }
-                g.DrawLine(new Pen(Color.FromArgb(60, 40, 20)), shelfX, by + 39, shelfX + 80, by + 39);
-            }
-
-            // ---- 窗户 + 窗帘 ----
-            int winX = 700 - (int)ox, winY = 120 - (int)oy;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(130, 180, 210)), winX, winY, 60, 80);
-            g.DrawRectangle(new Pen(Color.FromArgb(60, 50, 40), 2), winX, winY, 60, 80);
-            g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 1), winX + 30, winY, winX + 30, winY + 80);
-            g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 1), winX, winY + 40, winX + 60, winY + 40);
-            // 窗帘
-            using (Bitmap curtain = PixelIcons.CreateCurtain())
-            {
-                g.DrawImage(curtain, winX - 14, winY - 4, 16, 88);
-                g.DrawImage(curtain, winX + 58, winY - 4, 16, 88);
-            }
-
-            // ---- 尸体（像素小人风格，肉色皮肤+深色外套） ----
-            int bodyX = 400 - (int)ox, bodyY = 380 - (int)oy;
-            // 阴影
-            g.FillEllipse(new SolidBrush(Color.FromArgb(60, 0, 0, 0)), bodyX + 4, bodyY + 42, 32, 8);
-            // 腿（深色裤子）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 40, 40)), bodyX + 8, bodyY + 32, 10, 12);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 40, 40)), bodyX + 22, bodyY + 32, 10, 12);
-            // 身体（深色外套）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(65, 55, 45)), bodyX + 4, bodyY + 12, 32, 24);
-            // 衬衫（浅色）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(210, 200, 190)), bodyX + 10, bodyY + 14, 20, 10);
-            // 血迹（胸口致命伤）
-            g.FillEllipse(new SolidBrush(Color.FromArgb(180, 20, 20)), bodyX + 14, bodyY + 16, 12, 8);
-            g.FillEllipse(new SolidBrush(Color.FromArgb(120, 10, 10)), bodyX + 16, bodyY + 18, 6, 5);
-            // 头（肉色）
-            g.FillEllipse(new SolidBrush(Color.FromArgb(255, 224, 189)), bodyX + 10, bodyY + 2, 20, 14);
-            // 头发
-            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 30, 20)), bodyX + 8, bodyY, 24, 5);
-            // 闭眼
-            g.DrawLine(new Pen(Color.FromArgb(40, 30, 20)), bodyX + 13, bodyY + 7, bodyX + 17, bodyY + 7);
-            g.DrawLine(new Pen(Color.FromArgb(40, 30, 20)), bodyX + 21, bodyY + 7, bodyX + 25, bodyY + 7);
-            // 手臂（自然下垂，袖子）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(65, 55, 45)), bodyX - 2, bodyY + 14, 6, 16);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(65, 55, 45)), bodyX + 36, bodyY + 12, 6, 18);
-            // 手（肉色）
-            g.FillRectangle(new SolidBrush(Color.FromArgb(255, 224, 189)), bodyX - 1, bodyY + 28, 4, 4);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(255, 224, 189)), bodyX + 37, bodyY + 28, 4, 4);
-
-            // ---- 绘制物品 ----
-            foreach (var item in sceneItems)
-            {
-                int sx = item.Rect.X - (int)ox, sy = item.Rect.Y - (int)oy;
-                if (sx + item.Rect.Width < 0 || sx > vw || sy + item.Rect.Height < 0 || sy > vh) continue;
-                if (item.Icon != null)
-                    g.DrawImage(item.Icon, sx, sy, item.Rect.Width, item.Rect.Height);
-                else
-                {
-                    g.FillRectangle(Brushes.DarkOliveGreen, sx, sy, item.Rect.Width, item.Rect.Height);
-                    g.DrawRectangle(Pens.Black, sx, sy, item.Rect.Width, item.Rect.Height);
-                }
-                g.DrawString(item.Name, itemFont, Brushes.White, sx, sy - 12);
-            }
-
-            // ---- 绘制 NPC + 道具 ----
-            foreach (var npc in npcList)
-            {
-                int sx = npc.Rect.X - (int)ox, sy = npc.Rect.Y - (int)oy;
-                if (npc.Icon != null)
-                    g.DrawImage(npc.Icon, sx, sy, npc.Rect.Width, npc.Rect.Height);
-                g.DrawString(npc.Name, itemFont, Brushes.Yellow, sx, sy - 12);
-
-                // NPC 身份道具
-                if (npc.Name.Contains("贝蒂"))
-                {
-                    using (Bitmap broom = PixelIcons.CreateBroom())
-                        g.DrawImage(broom, sx + 40, sy + 10, 20, 26);
-                }
-                else if (npc.Name.Contains("格雷"))
-                {
-                    using (Bitmap bag = PixelIcons.CreateMedicalBag())
-                        g.DrawImage(bag, sx - 22, sy + 10, 22, 24);
-                }
-            }
-
-            // ---- 绘制玩家 ----
-            int px = (int)(playerPos.X - ox) - 24;
-            int py = (int)(playerPos.Y - oy) - 36;
-            if (isCallingOut && tmrAnimate != null && tmrAnimate.Enabled)
-                g.DrawImage(picCharacterAnimFrame ? charStomp : charIdle, px, py, 48, 48);
-            else
-                g.DrawImage(charIdle, px, py, 48, 48);
-
-            // ---- 对话气泡 ----
-            if (!string.IsNullOrEmpty(dialogueText))
-            {
-                const int maxBubbleWidth = 280;
-                SizeF size = g.MeasureString(dialogueText, dialogueFont, maxBubbleWidth);
-                float bubbleW = size.Width + 10;
-                float bubbleH = size.Height + 6;
-                float bubbleX = px - 5;
-                float bubbleY = py - bubbleH - 10;
-
-                if (bubbleX < 0) bubbleX = 0;
-                if (bubbleX + bubbleW > vw) bubbleX = vw - bubbleW;
-                if (bubbleY < 0) bubbleY = py + 48;
-
-                g.FillRectangle(Brushes.White, bubbleX, bubbleY, bubbleW, bubbleH);
-                g.DrawRectangle(Pens.Black, bubbleX, bubbleY, bubbleW, bubbleH);
-                g.DrawString(dialogueText, dialogueFont, Brushes.Black,
-                    new RectangleF(bubbleX + 5, bubbleY + 3, bubbleW - 10, bubbleH - 6));
-            }
-        }
+        // 场景绘制已迁移至 FormPlayerA_Paint.cs
 
         // ==================== 指认真凶 ====================
         private void BtnAccuse_Click(object sender, EventArgs e)
@@ -653,7 +506,7 @@ namespace DualMystery
                     string accused = cmb.SelectedItem.ToString();
                     hasAccused = true;
                     btnAccuse.Enabled = false;
-                    GameManager.SubmitAccusation("A", accused);
+                    gameClient.SubmitAccusation("A", accused);
                 }
             }
         }
@@ -697,10 +550,7 @@ namespace DualMystery
                 }
             };
 
-            PhoneManager.OnCallRequest += PhoneManager_OnCallRequest;
-            PhoneManager.OnCallEstablished += PhoneManager_OnCallEstablished;
-            PhoneManager.OnCallEnded += PhoneManager_OnCallEnded;
-            PhoneManager.OnRingTimeout += PhoneManager_OnRingTimeout;
+            // 电话事件订阅已迁移至 gameClient（构造函数中绑定）
         }
 
         private void StopRingingUI() { tmrAnimate.Stop(); tmrTimeout.Stop(); tmrProgress.Stop(); isCallingOut = false; pnlIncoming.Visible = false; lblBubble.Visible = false; }
@@ -715,7 +565,7 @@ namespace DualMystery
         private void PhoneManager_OnCallEstablished()
         {
             if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEstablished)); return; }
-            StopRingingUI(); currentChatForm = new FormChat("A"); currentChatForm.FormClosed += (s, e) => PhoneManager.HangUp("A"); currentChatForm.Show();
+            StopRingingUI(); currentChatForm = new FormChat("A", gameClient); currentChatForm.FormClosed += (s, e) => gameClient.HangUp("A"); currentChatForm.Show();
         }
         private void PhoneManager_OnCallEnded()
         {
@@ -728,47 +578,42 @@ namespace DualMystery
             StopRingingUI(); if (caller == "A") { lblBubble.Visible = true; tmrBubble.Start(); }
         }
 
-        // ==================== 线索同步 ====================
+        // ==================== 网络事件处理 ====================
         private void FormPlayerA_Load(object sender, EventArgs e)
         {
-            GameManager.OnClueDiscovered += GameManager_OnClueDiscovered;
-            GameManager.OnSafeUnlocked += GameManager_OnSafeUnlocked;
-            GameManager.OnAccusationResult += GameManager_OnAccusationResult;
-            foreach (var c in GameManager.AllClues)
-                if (c.IsDiscovered && c.DiscoveredBy == "A")
+            // 从本地缓存加载已有线索（StateSync 已到达则直接显示）
+            foreach (var c in gameClient.ClueCache)
+                if (c.IsDiscovered && c.DiscoveredBy == "A" && !lstCluesA.Items.Contains(c.Name))
                     lstCluesA.Items.Add(c.Name);
         }
-        private void GameManager_OnClueDiscovered(string id)
+
+        private void GameClient_OnClueDiscovered(string clueId, string player)
         {
-            if (InvokeRequired) { Invoke(new Action<string>(GameManager_OnClueDiscovered), id); return; }
-            var cl = GameManager.AllClues.FirstOrDefault(c => c.Id == id);
+            if (InvokeRequired) { Invoke(new Action(() => GameClient_OnClueDiscovered(clueId, player))); return; }
+            var cl = gameClient.ClueCache.FirstOrDefault(c => c.Id == clueId);
             if (cl != null && cl.DiscoveredBy == "A" && !lstCluesA.Items.Contains(cl.Name))
                 lstCluesA.Items.Add(cl.Name);
         }
-        private void GameManager_OnSafeUnlocked()
-        {
-            if (InvokeRequired) { Invoke(new Action(GameManager_OnSafeUnlocked)); return; }
-            MessageBox.Show("保险箱打开了！里面有一份遗嘱和一封举报信，已自动记录为线索。请继续调查并指认真凶。", "保险箱已开");
-            // 不再关闭窗口，游戏继续
-        }
-        private void GameManager_OnAccusationResult(bool bothCorrect)
-        {
-            if (InvokeRequired) { Invoke(new Action<bool>(GameManager_OnAccusationResult), bothCorrect); return; }
 
-            // 立即缓存本次指认值（后续 ResetAccusation 不会影响这两个本地变量）
-            string accA = GameManager.LastAccusationA;
-            string accB = GameManager.LastAccusationB;
+        private void GameClient_OnSafeUnlocked()
+        {
+            if (InvokeRequired) { Invoke(new Action(GameClient_OnSafeUnlocked)); return; }
+            MessageBox.Show("保险箱打开了！里面有一份遗嘱和一封举报信，已自动记录为线索。请继续调查并指认真凶。", "保险箱已开");
+        }
+
+        private void GameClient_OnAccusationResult(string accA, string accB, bool bothCorrect)
+        {
+            if (InvokeRequired) { Invoke(new Action(() => GameClient_OnAccusationResult(accA, accB, bothCorrect))); return; }
 
             if (bothCorrect)
             {
                 if (!GameManager.ResultMessageShown)
                 {
                     GameManager.ResultMessageShown = true;
-                    // 显示全屏结局画面（TopMost 会覆盖一切）
+                    // 显示全屏结局画面
                     var ending = new FormEnding();
                     ending.FormClosed += (s2, e2) =>
                     {
-                        // 结局播放完毕，关闭所有游戏窗口
                         foreach (Form f in Application.OpenForms)
                             if (f is FormPlayerA || f is FormPlayerB)
                                 f.Close();
@@ -785,7 +630,6 @@ namespace DualMystery
                         $"指认结果不一致！\n侦探A指认：{accA}\n侦探B指认：{accB}\n\n请通过电话沟通后重新指认。",
                         "指认失败");
                 }
-                // 无论是否弹窗，双方都重置为可重新指认状态
                 hasAccused = false;
                 btnAccuse.Enabled = true;
                 GameManager.ResetAccusation();
@@ -793,13 +637,17 @@ namespace DualMystery
         }
         private void FormPlayerA_FormClosing(object sender, FormClosingEventArgs e)
         {
-            GameManager.OnClueDiscovered -= GameManager_OnClueDiscovered;
-            GameManager.OnSafeUnlocked -= GameManager_OnSafeUnlocked;
-            GameManager.OnAccusationResult -= GameManager_OnAccusationResult;
-            PhoneManager.OnCallRequest -= PhoneManager_OnCallRequest;
-            PhoneManager.OnCallEstablished -= PhoneManager_OnCallEstablished;
-            PhoneManager.OnCallEnded -= PhoneManager_OnCallEnded;
-            PhoneManager.OnRingTimeout -= PhoneManager_OnRingTimeout;
+            if (gameClient != null)
+            {
+                gameClient.OnClueDiscovered -= GameClient_OnClueDiscovered;
+                gameClient.OnSafeUnlocked -= GameClient_OnSafeUnlocked;
+                gameClient.OnAccusationResult -= GameClient_OnAccusationResult;
+                gameClient.OnCallRequest -= PhoneManager_OnCallRequest;
+                gameClient.OnCallEstablished -= PhoneManager_OnCallEstablished;
+                gameClient.OnCallEnded -= PhoneManager_OnCallEnded;
+                gameClient.OnRingTimeout -= PhoneManager_OnRingTimeout;
+                gameClient.Disconnect();
+            }
             gameLoop.Stop();
             tmrAnimate?.Stop();
             tmrTimeout?.Stop();

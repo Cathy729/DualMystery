@@ -17,6 +17,7 @@ namespace DualMystery
         private Label lblSpeaker;
         private Timer beatTimer;
         private Timer animTimer;
+        private Button btnClose;
 
         // 结局角色像素图 (48×48 放大到 96×96)
         private Bitmap sprDetectiveA, sprDetectiveB;
@@ -60,7 +61,7 @@ namespace DualMystery
                 new StoryBeat { Speaker = "贝蒂", Text = "谢谢你们……我终于不用再害怕了。那晚我确实看到了不该看的东西，但我不敢说。", Duration = 5.0f, Type = BeatType.Epilogue },
                 new StoryBeat { Speaker = "格雷医生", Text = "我的安眠药是无辜的。职业操守终究没有被辜负。", Duration = 4.0f, Type = BeatType.Epilogue },
                 new StoryBeat { Speaker = "埃德加", Text = "哥哥……他虽然脾气古怪，但不该落得如此下场。至少真相大白了。", Duration = 4.5f, Type = BeatType.Epilogue },
-                new StoryBeat { Speaker = "", Text = "案件告破。正义或许会迟到，但从不缺席。\n\n—— 双线谜案 · 完 ——", Duration = 5.0f, Type = BeatType.Finale },
+                new StoryBeat { Speaker = "", Text = "案件告破。正义或许会迟到，但从不缺席。\n\n—— 双线谜案 · 完 ————\n\n（点击任意位置或按 Esc 退出）", Duration = 5.0f, Type = BeatType.Finale },
             };
         }
 
@@ -218,22 +219,34 @@ namespace DualMystery
             this.Click += (s, e) => AdvanceBeat();
             canvas.Click += (s, e) => AdvanceBeat();
             pnlDialogue.Click += (s, e) => AdvanceBeat();
-            this.KeyDown += (s, e) => { if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter) AdvanceBeat(); };
+            this.KeyDown += (s, e) => { if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter) AdvanceBeat(); if (e.KeyCode == Keys.Escape) this.Close(); };
+
+            // 关闭按钮
+            btnClose = new Button
+            {
+                Text = "✕",
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.FromArgb(200, 200, 200),
+                BackColor = Color.FromArgb(100, 0, 0, 0),
+                Size = new Size(30, 30),
+                Location = new Point(this.ClientSize.Width - 45, 10),
+                FlatAppearance = { BorderSize = 0 },
+                Font = new Font("Arial", 10f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            btnClose.Click += (s, e) => this.Close();
+            this.Controls.Add(btnClose);
+            btnClose.BringToFront();
 
             // 动画计时器 30fps
             animTimer = new Timer { Interval = 33 };
             animTimer.Tick += AnimTimer_Tick;
 
-            // 节拍计时器
+            // 节拍计时器 — 仅用于动画进度跟踪（不自动跳转）
             beatTimer = new Timer { Interval = 100 };
             beatTimer.Tick += (s, e) =>
             {
-                if (currentBeat < beats.Count &&
-                    beats[currentBeat].Elapsed >= beats[currentBeat].Duration)
-                {
-                    AdvanceBeat();
-                }
-                else if (currentBeat < beats.Count)
+                if (currentBeat < beats.Count)
                 {
                     beats[currentBeat].Elapsed += 0.1f;
                 }
@@ -242,6 +255,7 @@ namespace DualMystery
             this.Resize += (s, e) =>
             {
                 lblDialogue.Size = new Size(pnlDialogue.Width - 120, 80);
+                btnClose.Location = new Point(this.ClientSize.Width - 45, 10);
                 canvas.Invalidate();
             };
         }
@@ -254,15 +268,17 @@ namespace DualMystery
 
         private void AdvanceBeat()
         {
+            // 如果是最后一段（Finale），点击后直接关闭
+            if (currentBeat == beats.Count - 1 && beats[currentBeat].Type == BeatType.Finale)
+            {
+                this.Close();
+                return;
+            }
+
             currentBeat++;
             if (currentBeat >= beats.Count)
             {
-                // 结局结束
-                beatTimer.Stop();
-                animTimer.Stop();
-                var t = new Timer { Interval = 2000 };
-                t.Tick += (s, e) => { t.Stop(); this.Close(); };
-                t.Start();
+                this.Close();
                 return;
             }
             // 重置当前 Beat 计时

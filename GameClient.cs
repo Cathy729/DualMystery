@@ -42,6 +42,7 @@ namespace DualMystery
         public event Action<string, string> OnChatMessageReceived; // sender, text
         public event Action OnSafeUnlocked;
         public event Action<string, string, bool> OnAccusationResult; // accA, accB, bothCorrect
+        public event Action<string, string, string, string> OnClueShared; // clueId, fromPlayer, toPlayer, clueName
         public event Action<string> OnError;                      // errorMessage
         public event Action<string> OnPlayerDisconnected;          // playerId
 
@@ -55,6 +56,7 @@ namespace DualMystery
             public string Description { get; set; }
             public bool IsDiscovered { get; set; }
             public string DiscoveredBy { get; set; }
+            public string SharedTo { get; set; }
         }
 
         // ==================== 连接 ====================
@@ -191,6 +193,40 @@ namespace DualMystery
                         OnAccusationResult?.Invoke(data.Get("AccusationA"), data.Get("AccusationB"), bothCorrect);
                         break;
 
+                    case "ClueShared":
+                        {
+                            string sharedId = data.Get("ClueId");
+                            string fromP = data.Get("FromPlayer");
+                            string toP = data.Get("ToPlayer");
+                            string sharedName = data.Get("ClueName");
+                            string sharedDesc = data.Get("ClueDescription");
+                            // 更新本地缓存
+                            var entry = ClueCache.FirstOrDefault(c => c.Id == sharedId);
+                            if (entry != null)
+                            {
+                                entry.SharedTo = toP;
+                            }
+                            else
+                            {
+                                // 缓存缺失时从 GameManager 补登
+                                var gmClue = GameManager.AllClues.FirstOrDefault(gc => gc.Id == sharedId);
+                                if (gmClue != null)
+                                {
+                                    ClueCache.Add(new ClueCacheEntry
+                                    {
+                                        Id = gmClue.Id,
+                                        Name = sharedName,
+                                        Description = gmClue.Description,
+                                        IsDiscovered = true,
+                                        DiscoveredBy = fromP,
+                                        SharedTo = toP
+                                    });
+                                }
+                            }
+                            OnClueShared?.Invoke(sharedId, fromP, toP, sharedName);
+                        }
+                        break;
+
                     case "Error":
                         OnError?.Invoke(data.Get("Message"));
                         break;
@@ -222,7 +258,8 @@ namespace DualMystery
                             Name = c.GetOrDefault("Name", "") as string ?? "",
                             Description = c.GetOrDefault("Description", "") as string ?? "",
                             IsDiscovered = (c.GetOrDefault("IsDiscovered", false) as bool?) ?? false,
-                            DiscoveredBy = c.GetOrDefault("DiscoveredBy", "") as string ?? ""
+                            DiscoveredBy = c.GetOrDefault("DiscoveredBy", "") as string ?? "",
+                            SharedTo = c.GetOrDefault("SharedTo", "") as string ?? ""
                         });
                     }
                 }
@@ -284,14 +321,15 @@ namespace DualMystery
 
         public List<ClueCacheEntry> GetMyClues(string playerId)
         {
-            // 先从缓存中获取
-            var result = ClueCache.FindAll(c => c.IsDiscovered && c.DiscoveredBy == playerId);
+            // 自己的线索：自己发现的 + 对方分享给我的
+            var result = ClueCache.FindAll(c =>
+                c.IsDiscovered && (c.DiscoveredBy == playerId || c.SharedTo == playerId));
 
             // 补充 GameManager 中已发现但缓存未同步的线索（动态线索 + 时序兜底）
             var cachedIds = new HashSet<string>(ClueCache.Select(c => c.Id));
             foreach (var gmClue in GameManager.AllClues)
             {
-                if (gmClue.IsDiscovered && gmClue.DiscoveredBy == playerId)
+                if (gmClue.IsDiscovered && (gmClue.DiscoveredBy == playerId || gmClue.SharedTo == playerId))
                 {
                     if (!cachedIds.Contains(gmClue.Id))
                     {

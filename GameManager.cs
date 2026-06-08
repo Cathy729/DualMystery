@@ -18,6 +18,10 @@ namespace DualMystery
         public static string LastAccusationB { get; private set; } = null;
         // 标记本次结果是否已有窗口展示过弹窗，避免双方同时弹窗
         public static bool ResultMessageShown { get; set; } = false;
+        // 标记保险箱解锁弹窗是否已展示过，避免双方同时弹窗
+        public static bool SafeMessageShown { get; set; } = false;
+        // 标记保险箱是否已解锁，防止重复触发
+        private static bool safeAlreadyUnlocked = false;
         public static event Action<bool> OnAccusationResult; // true = 两人都指认莫里斯
 
         public static void SubmitAccusation(string player, string suspect)
@@ -55,10 +59,10 @@ namespace DualMystery
             AllClues.Add(new Clue { Id = "safe", Name = "保险箱", Description = "一个沉重的老式保险箱，需要4位数字密码。" });
 
             // 走廊线索
-            AllClues.Add(new Clue { Id = "photo", Name = "家族照片", Description = "相框背后用铅笔淡淡地写着“19”。" });
+            AllClues.Add(new Clue { Id = "photo", Name = "家族照片", Description = "相框背后用铅笔淡淡地写着：“霍华德说他最讨厌拍照这天”。" });
             AllClues.Add(new Clue { Id = "pawn_ticket", Name = "当票", Description = "一张当票，当品是钻石胸针，签名是“Edgar Blackwood”。" });
             AllClues.Add(new Clue { Id = "key", Name = "小钥匙", Description = "一把细小的黄铜钥匙，看起来能打开书桌抽屉。" });
-            AllClues.Add(new Clue { Id = "calendar", Name = "旧日历", Description = "12月25日被红圈圈起，旁边潦草地写着“该死的圣诞节”。" });
+            AllClues.Add(new Clue { Id = "calendar", Name = "旧日历", Description = "12月25日被红圈圈起，旁边潦草地写着“家庭照片拍摄日”。" });
         }
 
         public static void DiscoverClue(string clueId, string discoverer)
@@ -74,6 +78,10 @@ namespace DualMystery
 
         public static void UnlockSafe()
         {
+            // 防止重复解锁触发多次事件
+            if (safeAlreadyUnlocked) return;
+            safeAlreadyUnlocked = true;
+
             var will = AllClues.FirstOrDefault(c => c.Id == "will");
             if (will == null)
             {

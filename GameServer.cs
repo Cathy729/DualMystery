@@ -297,6 +297,11 @@ namespace DualMystery
             {
                 // 两人都已指认，发送结果
                 bool bothCorrect = (GameManager.LastAccusationA == "莫里斯" && GameManager.LastAccusationB == "莫里斯");
+                if (!bothCorrect)
+                {
+                    // 不一致时立即清空服务器端指认记录，确保双方必须重新指认
+                    GameManager.ResetAccusation();
+                }
                 Broadcast("AccusationResult", new Dictionary<string, string>
                 {
                     { "BothCorrect", bothCorrect.ToString() },
@@ -311,11 +316,26 @@ namespace DualMystery
             string clueId = data.GetOrDefault("ClueId", "") as string ?? "";
             string targetPlayer = from.PlayerId == "A" ? "B" : "A";
             var clue = GameManager.AllClues.FirstOrDefault(c => c.Id == clueId);
-            if (clue != null)
+            if (clue != null && !clue.IsShared)
             {
-                clue.IsDiscovered = true;
-                clue.DiscoveredBy = targetPlayer;
-                Broadcast("ClueDiscovered", new Dictionary<string, string> { { "ClueId", clueId }, { "Player", targetPlayer } });
+                // 标记分享，但不改变 DiscoveredBy（保留原始发现者）
+                clue.SharedTo = targetPlayer;
+
+                // 小钥匙特殊规则：通知双方更新笔记本显示名称
+                string sharedClueName = clue.Name;
+                if (clue.Id == "key")
+                {
+                    sharedClueName = "小钥匙";  // A 收到时显示的名称
+                }
+
+                Broadcast("ClueShared", new Dictionary<string, string>
+                {
+                    { "ClueId", clueId },
+                    { "FromPlayer", from.PlayerId },
+                    { "ToPlayer", targetPlayer },
+                    { "ClueName", sharedClueName },
+                    { "ClueDescription", clue.Description }
+                });
                 Broadcast("ChatMessage", new Dictionary<string, string>
                 {
                     { "Sender", "System" },
@@ -358,7 +378,8 @@ namespace DualMystery
                     { "Name", c.Name },
                     { "Description", c.Description },
                     { "IsDiscovered", c.IsDiscovered },
-                    { "DiscoveredBy", c.DiscoveredBy ?? "" }
+                    { "DiscoveredBy", c.DiscoveredBy ?? "" },
+                    { "SharedTo", c.SharedTo ?? "" }
                 });
             }
             var msg = json.Serialize(new

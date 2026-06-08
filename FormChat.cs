@@ -161,13 +161,19 @@ namespace DualMystery
         {
             var myClues = gameClient.GetMyClues(_playerIdentity);
 
-            if (myClues.Count == 0)
+            // 筛选出尚未分享的线索（自己发现的且 SharedTo 为空的）
+            var shareable = myClues
+                .Where(c => string.IsNullOrEmpty(c.SharedTo))
+                .Select(c => new Clue { Id = c.Id, Name = c.Name, Description = c.Description })
+                .ToList();
+
+            if (shareable.Count == 0)
             {
                 MessageBox.Show("还没有线索可分享", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            using (var dialog = new FormSelectClue(myClues.Select(c => new Clue { Id = c.Id, Name = c.Name, Description = c.Description }).ToList()))
+            using (var dialog = new FormSelectClue(shareable))
             {
                 if (dialog.ShowDialog() == DialogResult.OK && dialog.SelectedClue != null)
                 {

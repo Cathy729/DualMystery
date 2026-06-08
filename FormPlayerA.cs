@@ -79,6 +79,7 @@ namespace DualMystery
             // TCP 客户端初始化
             gameClient = new GameClient();
             gameClient.OnClueDiscovered += GameClient_OnClueDiscovered;
+            gameClient.OnClueShared += GameClient_OnClueShared;
             gameClient.OnSafeUnlocked += GameClient_OnSafeUnlocked;
             gameClient.OnAccusationResult += GameClient_OnAccusationResult;
             gameClient.OnCallRequest += PhoneManager_OnCallRequest;
@@ -643,10 +644,13 @@ namespace DualMystery
         // ==================== 网络事件处理 ====================
         private void FormPlayerA_Load(object sender, EventArgs e)
         {
-            // 从本地缓存加载已有线索（StateSync 已到达则直接显示）
+            // 从本地缓存加载已有线索和分享给我的线索
             foreach (var c in gameClient.ClueCache)
-                if (c.IsDiscovered && c.DiscoveredBy == "A" && !lstCluesA.Items.Contains(c.Name))
+            {
+                if (c.IsDiscovered && (c.DiscoveredBy == "A" || c.SharedTo == "A")
+                    && !lstCluesA.Items.Contains(c.Name))
                     lstCluesA.Items.Add(c.Name);
+            }
         }
 
         private void GameClient_OnClueDiscovered(string clueId, string player)
@@ -657,9 +661,23 @@ namespace DualMystery
                 lstCluesA.Items.Add(cl.Name);
         }
 
+        private void GameClient_OnClueShared(string clueId, string fromPlayer, string toPlayer, string clueName)
+        {
+            if (InvokeRequired) { Invoke(new Action(() => GameClient_OnClueShared(clueId, fromPlayer, toPlayer, clueName))); return; }
+            if (toPlayer == "A")
+            {
+                // A 收到了对方分享的线索
+                if (!lstCluesA.Items.Contains(clueName))
+                    lstCluesA.Items.Add(clueName);
+            }
+        }
+
         private void GameClient_OnSafeUnlocked()
         {
             if (InvokeRequired) { Invoke(new Action(GameClient_OnSafeUnlocked)); return; }
+            // 防止两个客户端同时弹窗
+            if (GameManager.SafeMessageShown) return;
+            GameManager.SafeMessageShown = true;
             MessageBox.Show("保险箱打开了！里面有一份遗嘱和一封举报信，已自动记录为线索。请继续调查并指认真凶。", "保险箱已开");
         }
 
@@ -685,16 +703,18 @@ namespace DualMystery
             }
             else
             {
+                // 立即恢复本地按钮状态（两个客户端各自执行）
+                hasAccused = false;
+                btnAccuse.Enabled = true;
+
+                // 弹窗只展示一次（服务器端已清空指认记录）
                 if (!GameManager.ResultMessageShown)
                 {
                     GameManager.ResultMessageShown = true;
                     MessageBox.Show(
-                        $"指认结果不一致！\n侦探A指认：{accA}\n侦探B指认：{accB}\n\n请通过电话沟通后重新指认。",
+                        "两位侦探指认结果不一致，请重新沟通后再次指认。",
                         "指认失败");
                 }
-                hasAccused = false;
-                btnAccuse.Enabled = true;
-                GameManager.ResetAccusation();
             }
         }
         private void FormPlayerA_FormClosing(object sender, FormClosingEventArgs e)
@@ -702,6 +722,7 @@ namespace DualMystery
             if (gameClient != null)
             {
                 gameClient.OnClueDiscovered -= GameClient_OnClueDiscovered;
+                gameClient.OnClueShared -= GameClient_OnClueShared;
                 gameClient.OnSafeUnlocked -= GameClient_OnSafeUnlocked;
                 gameClient.OnAccusationResult -= GameClient_OnAccusationResult;
                 gameClient.OnCallRequest -= PhoneManager_OnCallRequest;

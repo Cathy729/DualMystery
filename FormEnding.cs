@@ -17,7 +17,11 @@ namespace DualMystery
         private Label lblSpeaker;
         private Timer beatTimer;
         private Timer animTimer;
-        private Button btnClose;
+        private Timer typewriterTimer;
+        private Label lblAction;
+        private int typewriterIndex = 0;
+        private bool isTypewriterComplete = true;
+        private string fullText = "";
 
         // 结局角色像素图 (48×48 放大到 96×96)
         private Bitmap sprDetectiveA, sprDetectiveB;
@@ -40,7 +44,11 @@ namespace DualMystery
             GenerateSprites();
             beats = BuildStoryBeats();
             InitializeCustomUI();
-            this.Load += (s, e) => StartEnding();
+            this.Load += (s, e) =>
+            {
+                UpdateDialogueLayout();
+                StartEnding();
+            };
         }
 
         // ==================== 故事节拍定义 ====================
@@ -172,11 +180,12 @@ namespace DualMystery
         private void InitializeCustomUI()
         {
             this.Text = "双线谜案 · 结局";
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.WindowState = FormWindowState.Maximized;
-            this.TopMost = true;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.ClientSize = new Size(1024, 700);
             this.BackColor = Color.Black;
             this.DoubleBuffered = true;
+            this.KeyPreview = true;
 
             // 主画布
             canvas = new PictureBox
@@ -187,30 +196,40 @@ namespace DualMystery
             canvas.Paint += Canvas_Paint;
             this.Controls.Add(canvas);
 
-            // 底部对话面板
+            // 底部对话面板 — 约4行文字高度，居中字幕
             pnlDialogue = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 140,
-                BackColor = Color.FromArgb(220, 15, 15, 20)
+                Height = 180,
+                BackColor = Color.FromArgb(230, 12, 12, 18)
             };
             lblSpeaker = new Label
             {
-                Location = new Point(60, 10),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(201, 169, 110),
-                Font = new Font("Georgia", 13f, FontStyle.Bold),
+                Font = new Font("Georgia", 12f, FontStyle.Bold),
                 Text = ""
+            };
+            // 动作/场景高亮标签 — 黄底黑字
+            lblAction = new Label
+            {
+                AutoSize = true,
+                BackColor = Color.FromArgb(240, 200, 0),
+                ForeColor = Color.Black,
+                Font = new Font("Georgia", 11f, FontStyle.Bold),
+                Text = "",
+                Visible = false,
+                Padding = new Padding(6, 2, 6, 2)
             };
             lblDialogue = new Label
             {
-                Location = new Point(60, 45),
-                Size = new Size(pnlDialogue.Width - 120, 80),
+                AutoSize = false,
                 ForeColor = Color.FromArgb(245, 240, 230),
                 Font = new Font("Georgia", 12f),
                 Text = ""
             };
             pnlDialogue.Controls.Add(lblSpeaker);
+            pnlDialogue.Controls.Add(lblAction);
             pnlDialogue.Controls.Add(lblDialogue);
             this.Controls.Add(pnlDialogue);
             pnlDialogue.BringToFront();
@@ -219,24 +238,18 @@ namespace DualMystery
             this.Click += (s, e) => AdvanceBeat();
             canvas.Click += (s, e) => AdvanceBeat();
             pnlDialogue.Click += (s, e) => AdvanceBeat();
-            this.KeyDown += (s, e) => { if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter) AdvanceBeat(); if (e.KeyCode == Keys.Escape) this.Close(); };
-
-            // 关闭按钮
-            btnClose = new Button
+            this.KeyDown += (s, e) =>
             {
-                Text = "✕",
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.FromArgb(200, 200, 200),
-                BackColor = Color.FromArgb(100, 0, 0, 0),
-                Size = new Size(30, 30),
-                Location = new Point(this.ClientSize.Width - 45, 10),
-                FlatAppearance = { BorderSize = 0 },
-                Font = new Font("Arial", 10f, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleCenter
+                if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter) AdvanceBeat();
+                if (e.KeyCode == Keys.Escape) CloseEnding();
             };
-            btnClose.Click += (s, e) => this.Close();
-            this.Controls.Add(btnClose);
-            btnClose.BringToFront();
+            this.FormClosing += (s, e) =>
+            {
+                // 停止所有定时器，防止在关闭过程中访问已释放的资源
+                animTimer?.Stop();
+                beatTimer?.Stop();
+                typewriterTimer?.Stop();
+            };
 
             // 动画计时器 30fps
             animTimer = new Timer { Interval = 33 };
@@ -252,39 +265,187 @@ namespace DualMystery
                 }
             };
 
+            // 打字机计时器 — 逐字输出对话文本（~30ms/字）
+            typewriterTimer = new Timer { Interval = 30 };
+            typewriterTimer.Tick += TypewriterTimer_Tick;
+
             this.Resize += (s, e) =>
             {
-                lblDialogue.Size = new Size(pnlDialogue.Width - 120, 80);
-                btnClose.Location = new Point(this.ClientSize.Width - 45, 10);
+                UpdateDialogueLayout();
                 canvas.Invalidate();
             };
+        }
+
+        /// <summary>
+        /// 更新对话面板内部布局：字幕区域宽度占面板 75%，居中显示，高度可容纳约4行文字
+        /// </summary>
+        private void UpdateDialogueLayout()
+        {
+            if (pnlDialogue == null || lblDialogue == null) return;
+
+            int panelW = pnlDialogue.Width;
+            int panelH = pnlDialogue.Height;
+            // 字幕区域占面板宽度的 75%，左右各留 12.5% 边距
+            int margin = (int)(panelW * 0.125);
+            int contentW = panelW - margin * 2;
+
+            // 说话人标签：顶部左对齐
+            lblSpeaker.Location = new Point(margin, 10);
+            lblSpeaker.MaximumSize = new Size(contentW, 0);
+
+            // 动作标签：说话人下方
+            lblAction.Location = new Point(margin, 34);
+            lblAction.MaximumSize = new Size(contentW, 0);
+
+            // 字幕正文：动作标签下方，剩余高度全部用于文字
+            int textTop = 58;
+            int textHeight = panelH - textTop - 16; // 底部留 16px 呼吸空间
+            if (textHeight < 40) textHeight = 40;
+            lblDialogue.Location = new Point(margin, textTop);
+            lblDialogue.Size = new Size(contentW, textHeight);
         }
 
         private void StartEnding()
         {
             animTimer.Start();
             beatTimer.Start();
+            // 启动第一个节拍的打字机效果
+            if (beats.Count > 0)
+                StartTypewriter();
         }
 
         private void AdvanceBeat()
         {
-            // 如果是最后一段（Finale），点击后直接关闭
-            if (currentBeat == beats.Count - 1 && beats[currentBeat].Type == BeatType.Finale)
+            // 打字机进行中 → 跳过动画，直接显示全文
+            if (!isTypewriterComplete)
             {
-                this.Close();
+                SkipTypewriter();
+                return;
+            }
+
+            // 打字机已完成 → 推进到下一节拍
+            // 如果是最后一段（Finale），点击后直接关闭
+            if (currentBeat >= 0 && currentBeat < beats.Count
+                && beats[currentBeat].Type == BeatType.Finale)
+            {
+                CloseEnding();
                 return;
             }
 
             currentBeat++;
             if (currentBeat >= beats.Count)
             {
-                this.Close();
+                CloseEnding();
                 return;
             }
-            // 重置当前 Beat 计时
+            // 重置当前 Beat 计时与打字机状态
             beats[currentBeat].Elapsed = 0f;
             animProgress = 0f;
+            StartTypewriter();
             canvas.Invalidate();
+        }
+
+        /// <summary>跳过打字机动画，直接显示当前 Beat 的完整文本</summary>
+        private void SkipTypewriter()
+        {
+            typewriterTimer.Stop();
+            isTypewriterComplete = true;
+            typewriterIndex = fullText.Length;
+            lblDialogue.Text = fullText;
+        }
+
+        /// <summary>开始当前 Beat 的打字机效果</summary>
+        private void StartTypewriter()
+        {
+            if (currentBeat < 0 || currentBeat >= beats.Count) return;
+            var beat = beats[currentBeat];
+
+            // 设置说话人与动作标签
+            lblSpeaker.Text = beat.Speaker;
+            UpdateActionLabel(beat);
+
+            fullText = beat.Text;
+            typewriterIndex = 0;
+            isTypewriterComplete = string.IsNullOrEmpty(fullText);
+            lblDialogue.Text = "";
+            if (!isTypewriterComplete)
+                typewriterTimer.Start();
+            else
+                lblDialogue.Text = "";
+        }
+
+        /// <summary>更新动作/场景高亮标签</summary>
+        private void UpdateActionLabel(StoryBeat beat)
+        {
+            string actionText = "";
+            switch (beat.Type)
+            {
+                case BeatType.MorrisStep: actionText = "▸ 莫里斯颤抖着走上前"; break;
+                case BeatType.MorrisConfess: actionText = "▸ 莫里斯坦白罪行"; break;
+                case BeatType.PoliceEnter: actionText = "▸ 警察破门而入"; break;
+                case BeatType.Arrest: actionText = "▸ 莫里斯被戴上手铐押走"; break;
+                case BeatType.Gather: actionText = "▸ 布莱克伍德庄园 · 大厅"; break;
+                case BeatType.Celebrate: actionText = "▸ 两位侦探握手庆祝"; break;
+                case BeatType.Epilogue: actionText = "▸ 真相大白，各人各归其位"; break;
+            }
+            if (!string.IsNullOrEmpty(actionText))
+            {
+                lblAction.Text = actionText;
+                lblAction.Visible = true;
+            }
+            else
+            {
+                lblAction.Text = "";
+                lblAction.Visible = false;
+            }
+        }
+
+        private void TypewriterTimer_Tick(object sender, EventArgs e)
+        {
+            if (isTypewriterComplete || string.IsNullOrEmpty(fullText))
+            {
+                typewriterTimer.Stop();
+                return;
+            }
+            typewriterIndex++;
+            if (typewriterIndex >= fullText.Length)
+            {
+                typewriterIndex = fullText.Length;
+                isTypewriterComplete = true;
+                typewriterTimer.Stop();
+            }
+            lblDialogue.Text = fullText.Substring(0, typewriterIndex);
+        }
+
+        /// <summary>安全关闭结局窗口，释放所有资源并退出程序</summary>
+        private void CloseEnding()
+        {
+            try
+            {
+                // 停止所有定时器
+                animTimer?.Stop();
+                beatTimer?.Stop();
+                typewriterTimer?.Stop();
+            }
+            catch { }
+
+            try
+            {
+                // 关闭玩家窗体
+                foreach (Form f in Application.OpenForms)
+                {
+                    if (f is FormPlayerA || f is FormPlayerB)
+                    {
+                        try { f.Close(); } catch { }
+                    }
+                }
+            }
+            catch { }
+
+            try { this.Close(); } catch { }
+
+            // 兜底：强制结束进程，确保不残留后台线程
+            try { Environment.Exit(0); } catch { }
         }
 
         private void AnimTimer_Tick(object sender, EventArgs e)
@@ -349,9 +510,9 @@ namespace DualMystery
 
             var beat = beats[currentBeat];
 
-            // 绘制地面
-            int floorY = ch - 250;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 0, floorY, cw, 250);
+            // 绘制地面（面板增高至210，地面相应上移）
+            int floorY = ch - 260;
+            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 0, floorY, cw, 260);
             g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 2), 0, floorY, cw, floorY);
 
             // 中心线
@@ -403,25 +564,6 @@ namespace DualMystery
                 DrawCharacter(g, sprPolice2, (int)p2x, floorY - 96, "");
             }
 
-            // 上方场景标签
-            string sceneHint = "";
-            switch (beat.Type)
-            {
-                case BeatType.Gather: sceneHint = "—— 布莱克伍德庄园 · 大厅 ——"; break;
-                case BeatType.MorrisStep: case BeatType.MorrisConfess: sceneHint = "—— 莫里斯颤抖着走上前 ——"; break;
-                case BeatType.PoliceEnter: sceneHint = "—— 警察破门而入 ——"; break;
-                case BeatType.Arrest: sceneHint = "—— 莫里斯被押走 ——"; break;
-                case BeatType.Celebrate: sceneHint = "—— 两位侦探握手庆祝 ——"; break;
-                case BeatType.Epilogue: sceneHint = "—— 真相大白，各人各归其位 ——"; break;
-                case BeatType.Finale: sceneHint = ""; break;
-            }
-            if (!string.IsNullOrEmpty(sceneHint))
-            {
-                using (Font sf = new Font("Georgia", 10f, FontStyle.Italic))
-                using (Brush sb = new SolidBrush(Color.FromArgb(150, 150, 150)))
-                    g.DrawString(sceneHint, sf, sb, cx - 200, floorY - 130);
-            }
-
             // 结局文字叠加
             if (beat.Type == BeatType.Finale)
             {
@@ -435,12 +577,6 @@ namespace DualMystery
                 }
             }
 
-            // 更新对话文本
-            if (lblSpeaker.Text != beat.Speaker || lblDialogue.Text != beat.Text)
-            {
-                lblSpeaker.Text = beat.Speaker;
-                lblDialogue.Text = beat.Text;
-            }
         }
 
         private void DrawCharacter(Graphics g, Bitmap sprite, int x, int y, string name)

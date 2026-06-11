@@ -146,6 +146,28 @@ namespace DualMystery
             return bmp;
         }
 
+        /// <summary>生成棋盘格平铺纹理，用于地板像素图案</summary>
+        /// <param name="tileSize">整张贴图尺寸（像素）</param>
+        /// <param name="checkSize">每个格子尺寸（像素），推荐 4</param>
+        /// <param name="c1">深色</param>
+        /// <param name="c2">浅色</param>
+        public static Bitmap CreateCheckerTile(int tileSize, int checkSize, Color c1, Color c2)
+        {
+            Bitmap bmp = new Bitmap(tileSize, tileSize);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                int checks = tileSize / checkSize;
+                for (int y = 0; y < checks; y++)
+                    for (int x = 0; x < checks; x++)
+                    {
+                        Color c = ((x + y) % 2 == 0) ? c1 : c2;
+                        using (SolidBrush brush = new SolidBrush(c))
+                            g.FillRectangle(brush, x * checkSize, y * checkSize, checkSize, checkSize);
+                    }
+            }
+            return bmp;
+        }
+
         // ==================== 像素边框绘制 ====================
 
         /// <summary>绘制像素风格矩形边框（2px，四角加粗）</summary>

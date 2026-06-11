@@ -47,9 +47,17 @@ namespace DualMystery
         private Font itemFont = Theme.GetFont(9f);
         private Font dialogueFont = Theme.GetFont(10f);
         private SolidBrush bgBrush = new SolidBrush(Theme.BgDark);
+        // 场景绘制缓存（每帧高频使用）
+        private SolidBrush bgFillBrushB = new SolidBrush(Color.FromArgb(48, 44, 40));
+        private Pen floorLinePenB = new Pen(Color.FromArgb(100, 80, 50), 2);
+        private SolidBrush hintBgBrushB = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
 
         // 装饰动画
         private int animFrame = 0;
+
+        // 地板纹理
+        private Bitmap floorTileB;
+        private Pen wallBrickPen = new Pen(Color.FromArgb(30, 0x3A, 0x3A, 0x3A), 1);
 
         // 鼠标悬停高亮
         private int hoveredItemIndex = -1;
@@ -71,6 +79,9 @@ namespace DualMystery
             InitializeCustomUI();
             BuildScene();
             BuildNPCs();
+            // 地板棋盘纹理（64×64 贴图，4px 格子）
+            floorTileB = Theme.CreateCheckerTile(64, 4,
+                Color.FromArgb(0x4A, 0x2A, 0x2A), Color.FromArgb(0x3E, 0x22, 0x22));
             // TCP 客户端初始化
             gameClient = new GameClient();
             gameClient.OnClueDiscovered += GameClient_OnClueDiscovered;
@@ -393,7 +404,7 @@ namespace DualMystery
                 }
             }
             // 若走到这里说明范围内无可交互对象——播放轻微提示音
-            System.Media.SystemSounds.Beep.Play();
+            SoundManager.PlayNoInteraction();
         }
 
         private void ShowNPCDialogue(NPCData npc)
@@ -401,6 +412,7 @@ namespace DualMystery
             npc.DialogueIndex = (npc.DialogueIndex + 1) % npc.Dialogues.Count;
             dialogueText = npc.Dialogues[npc.DialogueIndex];
             isLastDialogue = (npc.DialogueIndex == npc.Dialogues.Count - 1);
+            SoundManager.PlayDialogue();
             // 手动关闭，不再自动消失
             canvas.Invalidate();
             if (npc.Name.Contains("埃德加") && npc.DialogueIndex == 1)
@@ -442,9 +454,10 @@ namespace DualMystery
                 {
                     if (!lstCluesB.Items.Contains(clue.Name)) lstCluesB.Items.Add(clue.Name);
                     TriggerFeedback(sceneItems.IndexOf(item));
+                    SoundManager.PlayDiscovery();
                     PixelMessageBox.Show(clue.Description, clue.Name);
                 }
-                else System.Media.SystemSounds.Beep.Play();
+                else SoundManager.PlayError();
             }
             canvas.Invalidate();
         }
@@ -474,7 +487,7 @@ namespace DualMystery
         // ========== 电话 ==========
         private void InitializePhoneSystem()
         {
-            tmrAnimate = new Timer { Interval = 300 }; tmrAnimate.Tick += (s, e) => { picCharacterAnimFrame = !picCharacterAnimFrame; canvas.Invalidate(); System.Media.SystemSounds.Beep.Play(); };
+            tmrAnimate = new Timer { Interval = 300 }; tmrAnimate.Tick += (s, e) => { picCharacterAnimFrame = !picCharacterAnimFrame; canvas.Invalidate(); SoundManager.PlayRingTick(); };
             tmrTimeout = new Timer { Interval = 3000 }; tmrTimeout.Tick += TmrTimeout_Tick;
             tmrProgress = new Timer { Interval = 30 }; tmrProgress.Tick += TmrProgress_Tick;
             tmrBubble = new Timer { Interval = 1500 }; tmrBubble.Tick += (s, e) => { tmrBubble.Stop(); lblBubble.Visible = false; };
@@ -508,13 +521,14 @@ namespace DualMystery
         private void TmrTimeout_Tick(object sender, EventArgs e) { tmrTimeout.Stop(); if (isCallingOut) gameClient.HangUp("B"); else gameClient.DeclineCall("B"); StopRingingUI(); }
         private void TmrProgress_Tick(object sender, EventArgs e) { float r = 1f - (float)(DateTime.Now - callStartTime).TotalSeconds / 3f; if (r < 0) r = 0; pgbTimeout.Width = (int)(160 * r); }
         private void PhoneManager_OnCallRequest(string caller, string callee) { if (InvokeRequired) { Invoke(new Action<string, string>(PhoneManager_OnCallRequest), caller, callee); return; } if (callee == "B") { pnlIncoming.Visible = true; callStartTime = DateTime.Now; tmrProgress.Start(); tmrTimeout.Start(); } }
-        private void PhoneManager_OnCallEstablished() { if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEstablished)); return; } StopRingingUI(); currentChatForm = new FormChat("B", gameClient); currentChatForm.FormClosed += (s, e) => gameClient.HangUp("B"); currentChatForm.Show(); }
-        private void PhoneManager_OnCallEnded() { if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEnded)); return; } StopRingingUI(); if (currentChatForm != null && !currentChatForm.IsDisposed) { currentChatForm.Close(); currentChatForm = null; } }
+        private void PhoneManager_OnCallEstablished() { if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEstablished)); return; } StopRingingUI(); SoundManager.PlayCallAccept(); currentChatForm = new FormChat("B", gameClient); currentChatForm.FormClosed += (s, e) => gameClient.HangUp("B"); currentChatForm.Show(); }
+        private void PhoneManager_OnCallEnded() { if (InvokeRequired) { Invoke(new Action(PhoneManager_OnCallEnded)); return; } StopRingingUI(); SoundManager.PlayCallEnd(); if (currentChatForm != null && !currentChatForm.IsDisposed) { currentChatForm.Close(); currentChatForm = null; } }
         private void PhoneManager_OnRingTimeout(string caller) { if (InvokeRequired) { Invoke(new Action<string>(PhoneManager_OnRingTimeout), caller); return; } StopRingingUI(); if (caller == "B") { lblBubble.Visible = true; tmrBubble.Start(); } }
 
         // ========== 网络事件处理 ==========
         private void FormPlayerB_Load(object sender, EventArgs e)
         {
+            MusicManager.StartBgm();
             foreach (var c in gameClient.ClueCache)
             {
                 bool isMine = c.IsDiscovered && (c.DiscoveredBy == "B" || c.SharedTo == "B");
@@ -562,6 +576,7 @@ namespace DualMystery
             // 防止两个客户端同时弹窗
             if (GameManager.SafeMessageShown) return;
             GameManager.SafeMessageShown = true;
+            SoundManager.PlaySafeUnlock();
             PixelMessageBox.Show("书房传来了金属响声，保险箱打开了！遗嘱和举报信已自动记录。", "保险箱已开");
         }
         private void GameClient_OnAccusationResult(string accA, string accB, bool bothCorrect)
@@ -573,6 +588,8 @@ namespace DualMystery
                 if (!GameManager.ResultMessageShown)
                 {
                     GameManager.ResultMessageShown = true;
+                    SoundManager.PlaySuccess();
+                    MusicManager.StopBgm(); // 停止探案背景音乐
                     var ending = new FormEnding();
                     ending.FormClosed += (s2, e2) =>
                     {
@@ -593,12 +610,19 @@ namespace DualMystery
                 if (!GameManager.ResultMessageShown)
                 {
                     GameManager.ResultMessageShown = true;
+                    SoundManager.PlayError();
                     PixelMessageBox.Show(
                         "两位侦探指认结果不一致，请重新沟通后再次指认。",
                         "指认失败");
                 }
             }
         }
+        /// <summary>外部调用：停止探案背景音乐（进入结局前调用）</summary>
+        public void StopBackgroundMusic()
+        {
+            MusicManager.StopBgm();
+        }
+
         private void FormPlayerB_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (gameClient != null)
@@ -630,6 +654,11 @@ namespace DualMystery
             itemFont?.Dispose();
             dialogueFont?.Dispose();
             bgBrush?.Dispose();
+            bgFillBrushB?.Dispose();
+            floorLinePenB?.Dispose();
+            hintBgBrushB?.Dispose();
+            floorTileB?.Dispose();
+            wallBrickPen?.Dispose();
         }
 
         /// <summary>点击线索列表或时间线项时弹出详情</summary>

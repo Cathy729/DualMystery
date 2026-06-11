@@ -20,19 +20,93 @@ namespace DualMystery
             ox = Math.Max(0, Math.Min(ox, mapWidth - vw));
             oy = Math.Max(0, Math.Min(oy, mapHeight - vh));
 
-            // ---- 背景 ----
-            g.FillRectangle(new SolidBrush(Color.FromArgb(45, 40, 36)), 0, 0, mapWidth, mapHeight);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(35, 30, 28)), 0, 350 - (int)oy, mapWidth, 450);
-            g.DrawLine(new Pen(Color.FromArgb(80, 60, 40), 2), 0, 350 - (int)oy, mapWidth, 350 - (int)oy);
+            // ---- 背景：天花板 + 墙壁底色 ----
+            g.FillRectangle(bgFillBrush, 0, 0, mapWidth, mapHeight);
 
-            // ---- 地毯 ----
-            int carpetY = 520 - (int)oy;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(120, 30, 30)), 290 - (int)ox, carpetY, 620, 30);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(80, 20, 20)), 290 - (int)ox, carpetY, 620, 3);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(80, 20, 20)), 290 - (int)ox, carpetY + 27, 620, 3);
-            using (Bitmap carpetTile = PixelIcons.CreateCarpet())
-                for (int cx = 300; cx < 900; cx += 32)
-                    g.DrawImage(carpetTile, cx - (int)ox, carpetY, 32, 24);
+            // ---- 墙壁竖条纹壁纸（每 20px 一条浅色竖线） ----
+            int wallBottom = 350 - (int)oy;
+            if (wallBottom > 0)
+            {
+                int stripeStartX = ((int)ox / 20) * 20;
+                for (int wx = stripeStartX; wx < mapWidth && wx - (int)ox < vw; wx += 20)
+                {
+                    int sx = wx - (int)ox;
+                    if (sx >= 0)
+                        g.DrawLine(wallStripePen, sx, 0, sx, wallBottom);
+                }
+            }
+
+            // ---- 地板纹理（4×4 棋盘格，从 y=400 开始） ----
+            int floorStartY = 400;
+            int tileSize = 64;
+            int startTileX = ((int)ox / tileSize) * tileSize;
+            int startTileY = (floorStartY / tileSize) * tileSize;
+            for (int ty = startTileY; ty < mapHeight; ty += tileSize)
+            {
+                int sy = ty - (int)oy;
+                if (sy + tileSize < 0 || sy > vh) continue;
+                for (int tx = startTileX; tx < mapWidth; tx += tileSize)
+                {
+                    int sx = tx - (int)ox;
+                    if (sx + tileSize < 0 || sx > vw) continue;
+                    g.DrawImage(floorTileA, sx, sy, tileSize, tileSize);
+                }
+            }
+
+            // 墙-地分界线
+            g.DrawLine(floorLinePenA, 0, 350 - (int)oy, mapWidth, 350 - (int)oy);
+
+            // ---- 壁炉火焰闪烁 ----
+            int fpX = 80 - (int)ox, fpY = 280 - (int)oy;
+            // 每 30 帧（~500ms）更新火焰亮度
+            int flickerPhase = (animFrame / 30) % 5;
+            int flickerBrightness = 160 + flickerPhase * 15;
+            int flameR = Math.Min(255, flickerBrightness + 60);
+            int flameG = Math.Min(255, flickerBrightness / 2 + 20);
+            int flameB = Math.Min(50, flickerPhase * 8);
+            using (SolidBrush flameBrush = new SolidBrush(Color.FromArgb(flameR, flameG, flameB)))
+            {
+                // 在壁炉内部绘制火焰像素块
+                g.FillRectangle(flameBrush, fpX + 18, fpY + 42, 20, 14);
+                g.FillRectangle(flameBrush, fpX + 22, fpY + 38, 12, 10);
+                // 第二团小火焰
+                int flicker2 = (flickerPhase + 2) % 5;
+                int r2 = Math.Min(255, 150 + flicker2 * 18);
+                int g2 = Math.Min(255, flicker2 * 20 + 15);
+                using (SolidBrush flame2 = new SolidBrush(Color.FromArgb(r2, g2, 0)))
+                    g.FillRectangle(flame2, fpX + 30, fpY + 44, 10, 8);
+            }
+
+            // ---- 像素地毯（书桌下方，暗红 #6B2D2D） ----
+            int rugX = 430 - (int)ox, rugY = 500 - (int)oy;
+            int rugW = 140, rugH = 50;
+            // 地毯主体
+            g.FillRectangle(new SolidBrush(Color.FromArgb(0x6B, 0x2D, 0x2D)), rugX, rugY, rugW, rugH);
+            // 边缘深色像素点装饰（上下边）
+            using (SolidBrush edgeBrush = new SolidBrush(Color.FromArgb(0x3A, 0x15, 0x15)))
+            {
+                for (int ex = rugX; ex < rugX + rugW; ex += 4)
+                {
+                    g.FillRectangle(edgeBrush, ex, rugY, 3, 2);
+                    g.FillRectangle(edgeBrush, ex, rugY + rugH - 2, 3, 2);
+                }
+                for (int ey = rugY; ey < rugY + rugH; ey += 4)
+                {
+                    g.FillRectangle(edgeBrush, rugX, ey, 2, 3);
+                    g.FillRectangle(edgeBrush, rugX + rugW - 2, ey, 2, 3);
+                }
+            }
+            // 地毯中心菱形装饰
+            using (SolidBrush diamondBrush = new SolidBrush(Color.FromArgb(0x8B, 0x3D, 0x3D)))
+            {
+                PointF[] diamond = {
+                    new PointF(rugX + rugW/2f, rugY + 4),
+                    new PointF(rugX + rugW - 6, rugY + rugH/2f),
+                    new PointF(rugX + rugW/2f, rugY + rugH - 4),
+                    new PointF(rugX + 6, rugY + rugH/2f)
+                };
+                g.FillPolygon(diamondBrush, diamond);
+            }
 
             // ---- 壁炉 ----
             int fireplaceX = 80 - (int)ox, fireplaceY = 280 - (int)oy;
@@ -163,7 +237,7 @@ namespace DualMystery
                         float hintX = sx + item.Rect.Width / 2 - hintSize.Width / 2;
                         float hintY = sy - 24;
                         // 绘制提示背景
-                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                        g.FillRectangle(hintBgBrush,
                             hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
                         hintBrush.Color = hintColor;
                         g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);
@@ -195,7 +269,7 @@ namespace DualMystery
                         SizeF hintSize = g.MeasureString(hintText, hintFont);
                         float hintX = sx + npc.Rect.Width / 2 - hintSize.Width / 2;
                         float hintY = sy - 24;
-                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                        g.FillRectangle(hintBgBrush,
                             hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
                         hintBrush.Color = Color.Cyan;
                         g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);

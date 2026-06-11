@@ -105,6 +105,50 @@ namespace DualMystery
                     Application.Exit();
                 }
             };
+
+            // 音频诊断已移至 MusicManager 内部日志，启动时不再播放测试音频
+            // 如需手动诊断，取消下面注释后运行:
+            // this.Load += (s, e) => DiagnoseAudio();
+        }
+
+        /// <summary>
+        /// 音频系统诊断 — 验证资源嵌入 + NAudio 播放链
+        /// 结果输出到 /tmp/DualMystery_Music.log
+        /// </summary>
+        private void DiagnoseAudio()
+        {
+            System.Diagnostics.Debug.WriteLine("=== 音频系统诊断开始 ===");
+
+            // 第1步：验证每个 MP3 资源字节长度
+            var resources = new (string Name, byte[] Data)[]
+            {
+                ("bgm1",        Properties.Resources.bgm1),
+                ("bgm2",        Properties.Resources.bgm2),
+                ("truth",       Properties.Resources.truth),
+                ("conan_theme", Properties.Resources.conan_theme),
+            };
+
+            foreach (var (name, data) in resources)
+            {
+                int len = data?.Length ?? 0;
+                string status = len > 0 ? $"✅ {len} bytes" : "❌ NULL 或空!";
+                System.Diagnostics.Debug.WriteLine($"[Diagnose] 资源 {name}: {status}");
+                MusicManager_Log($"[Diagnose] 资源 {name}: {status}");
+            }
+
+            // 第2步：已移除 — truth.mp3 仅供结局动画使用，启动时不再播放测试音频
+            // NAudio 播放链验证已通过（NAudio.WinMM 2.3.0 已安装），无需每次启动复验
+        }
+
+        private static void MusicManager_Log(string msg)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "DualMystery_Music.log"),
+                    $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
+            }
+            catch { }
         }
 
         private void BtnStudy_Click(object sender, EventArgs e)

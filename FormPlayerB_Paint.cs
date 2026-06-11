@@ -19,13 +19,92 @@ namespace DualMystery
             ox = Math.Max(0, Math.Min(ox, mapWidth - vw));
             oy = Math.Max(0, Math.Min(oy, mapHeight - vh));
 
-            g.FillRectangle(new SolidBrush(Color.FromArgb(48, 44, 40)), 0, 0, mapWidth, mapHeight);
-            g.FillRectangle(new SolidBrush(Color.FromArgb(38, 34, 32)), 0, 360 - (int)oy, mapWidth, 440);
-            g.DrawLine(new Pen(Color.FromArgb(100, 80, 50), 2), 0, 360 - (int)oy, mapWidth, 360 - (int)oy);
+            // ---- 背景：天花板 + 墙壁底色 ----
+            g.FillRectangle(bgFillBrushB, 0, 0, mapWidth, mapHeight);
 
-            using (Bitmap carpetTile = PixelIcons.CreateCarpet())
-                for (int cx = 100; cx < 1100; cx += 32)
-                    g.DrawImage(carpetTile, cx - (int)ox, 540 - (int)oy, 32, 20);
+            // ---- 墙面砖纹图案（水平线 + 垂直线交错） ----
+            int wallBottomB = 360 - (int)oy;
+            if (wallBottomB > 0)
+            {
+                int brickH = 16; // 砖块高度
+                int brickW = 36; // 砖块宽度
+                int startBX = ((int)ox / brickW) * brickW;
+                // 水平线
+                for (int by = ((int)oy / brickH) * brickH; by < 360; by += brickH)
+                {
+                    int sy = by - (int)oy;
+                    if (sy > wallBottomB) break;
+                    g.DrawLine(wallBrickPen, 0, sy, mapWidth, sy);
+                }
+                // 垂直线（每行偏移半个砖宽）
+                for (int row = 0; row * brickH < 360; row++)
+                {
+                    int sy = row * brickH - (int)oy;
+                    if (sy < 0 || sy > wallBottomB) continue;
+                    int offsetX = (row % 2 == 0) ? 0 : brickW / 2;
+                    int startX = ((int)ox / brickW) * brickW;
+                    for (int bx = startX + offsetX; bx < mapWidth && bx - (int)ox < vw; bx += brickW)
+                    {
+                        int sx = bx - (int)ox;
+                        if (sx < 0) continue;
+                        g.DrawLine(wallBrickPen, sx, sy, sx, sy + brickH);
+                    }
+                }
+            }
+
+            // ---- 地板纹理（4×4 棋盘格，暗红色调，从 y=400 开始） ----
+            int floorStartB = 400;
+            int tileSz = 64;
+            int stX = ((int)ox / tileSz) * tileSz;
+            int stY = (floorStartB / tileSz) * tileSz;
+            for (int ty = stY; ty < mapHeight; ty += tileSz)
+            {
+                int sy = ty - (int)oy;
+                if (sy + tileSz < 0 || sy > vh) continue;
+                for (int tx = stX; tx < mapWidth; tx += tileSz)
+                {
+                    int sx = tx - (int)ox;
+                    if (sx + tileSz < 0 || sx > vw) continue;
+                    g.DrawImage(floorTileB, sx, sy, tileSz, tileSz);
+                }
+            }
+
+            // 墙-地分界线
+            g.DrawLine(floorLinePenB, 0, 360 - (int)oy, mapWidth, 360 - (int)oy);
+
+            // ---- 走廊窗户 + 像素窗帘（飘动动画） ----
+            int winBX = 750 - (int)ox, winBY = 130 - (int)oy;
+            // 窗户框
+            g.FillRectangle(new SolidBrush(Color.FromArgb(120, 160, 200)), winBX, winBY, 50, 70);
+            g.DrawRectangle(new Pen(Color.FromArgb(60, 50, 40), 2), winBX, winBY, 50, 70);
+            g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 1), winBX + 25, winBY, winBX + 25, winBY + 70);
+            g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 1), winBX, winBY + 35, winBX + 50, winBY + 35);
+            // 窗帘飘动：每 48 帧（~800ms）切换帧
+            int curtainFrame = (animFrame / 48) % 2;
+            int curtainShift = curtainFrame * 2; // 0 或 2px 偏移
+            using (Bitmap curtainBmp = PixelIcons.CreateCurtain())
+            {
+                g.DrawImage(curtainBmp, winBX - 12 + curtainShift, winBY - 4, 14, 78);
+                g.DrawImage(curtainBmp, winBX + 48 - curtainShift, winBY - 4, 14, 78);
+            }
+
+            // ---- 走廊长条地毯（深绿 #2D4A2D） ----
+            int carpetBX = 0, carpetBY = 530 - (int)oy;
+            int carpetBW = mapWidth, carpetBH = 28;
+            // 地毯主体
+            g.FillRectangle(new SolidBrush(Color.FromArgb(0x2D, 0x4A, 0x2D)), carpetBX, carpetBY, carpetBW, carpetBH);
+            // 上下边缘深色描边
+            using (Pen carpetEdge = new Pen(Color.FromArgb(0x1A, 0x30, 0x1A), 2))
+            {
+                g.DrawLine(carpetEdge, carpetBX, carpetBY, carpetBX + carpetBW, carpetBY);
+                g.DrawLine(carpetEdge, carpetBX, carpetBY + carpetBH, carpetBX + carpetBW, carpetBY + carpetBH);
+            }
+            // 地毯花纹：中心虚线
+            using (Pen dashPen = new Pen(Color.FromArgb(0x3D, 0x60, 0x3D), 1))
+            {
+                dashPen.DashPattern = new float[] { 8, 12 };
+                g.DrawLine(dashPen, carpetBX, carpetBY + carpetBH / 2, carpetBX + carpetBW, carpetBY + carpetBH / 2);
+            }
 
             int lampFlicker = (animFrame % 30 < 15 ? 0 : 40);
             for (int lx = 150; lx < 1100; lx += 250)
@@ -129,7 +208,7 @@ namespace DualMystery
                         SizeF hintSize = g.MeasureString(hintText, hintFont);
                         float hintX = sx + item.Rect.Width / 2 - hintSize.Width / 2;
                         float hintY = sy - 24;
-                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                        g.FillRectangle(hintBgBrushB,
                             hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
                         hintBrush.Color = hintColor;
                         g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);
@@ -159,7 +238,7 @@ namespace DualMystery
                         SizeF hintSize = g.MeasureString(hintText, hintFont);
                         float hintX = sx + npc.Rect.Width / 2 - hintSize.Width / 2;
                         float hintY = sy - 24;
-                        g.FillRectangle(new SolidBrush(Color.FromArgb(160, 0, 0, 0)),
+                        g.FillRectangle(hintBgBrushB,
                             hintX - 2, hintY, hintSize.Width + 4, hintSize.Height + 2);
                         hintBrush.Color = Color.Cyan;
                         g.DrawString(hintText, hintFont, hintBrush, hintX, hintY);

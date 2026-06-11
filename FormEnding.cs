@@ -28,6 +28,11 @@ namespace DualMystery
         private Bitmap sprMorris, sprBetty, sprGrey, sprEdgar;
         private Bitmap sprPolice1, sprPolice2;
 
+        // 缓存的 GDI 对象（避免 Paint 中反复创建）
+        private SolidBrush floorBrush = new SolidBrush(Color.FromArgb(40, 35, 30));
+        private Pen floorLinePen = new Pen(Color.FromArgb(60, 50, 40), 2);
+        private Bitmap bgTexture;
+
         // 动画状态
         private int currentBeat = 0;
         private float animProgress = 0f;     // 0~1 当前 Beat 内的动画进度
@@ -187,6 +192,9 @@ namespace DualMystery
             this.DoubleBuffered = true;
             this.KeyPreview = true;
 
+            // 背景纹理（星露谷风格木纹）
+            bgTexture = Theme.WoodTexture;
+
             // 主画布
             canvas = new PictureBox
             {
@@ -196,13 +204,15 @@ namespace DualMystery
             canvas.Paint += Canvas_Paint;
             this.Controls.Add(canvas);
 
-            // 底部对话面板 — 约4行文字高度，居中字幕
+            // 底部对话面板 — 木纹纹理 + 像素双线边框
             pnlDialogue = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 180,
-                BackColor = Color.FromArgb(230, 25, 35, 38)
+                BackColor = Theme.BgPanel
             };
+            Theme.ApplyTextureBackground(pnlDialogue, Theme.WoodTexture);
+            Theme.StylePanelWithBorder(pnlDialogue);
             lblSpeaker = new Label
             {
                 AutoSize = true,
@@ -307,6 +317,8 @@ namespace DualMystery
 
         private void StartEnding()
         {
+            // 播放结局音乐序列（truth → conan_theme）
+            MusicManager.PlayEndingMusic();
             animTimer.Start();
             beatTimer.Start();
             // 启动第一个节拍的打字机效果
@@ -422,10 +434,16 @@ namespace DualMystery
         {
             try
             {
-                // 停止所有定时器
                 animTimer?.Stop();
                 beatTimer?.Stop();
                 typewriterTimer?.Stop();
+            }
+            catch { }
+
+            try
+            {
+                floorBrush?.Dispose();
+                floorLinePen?.Dispose();
             }
             catch { }
 
@@ -503,17 +521,25 @@ namespace DualMystery
             g.PixelOffsetMode = PixelOffsetMode.Half;
             int cw = canvas.Width, ch = canvas.Height;
 
-            // 背景
-            g.Clear(Theme.BgMain);
+            // 背景（木纹纹理平铺）
+            if (bgTexture != null)
+            {
+                using (TextureBrush tb = new TextureBrush(bgTexture))
+                {
+                    tb.WrapMode = WrapMode.Tile;
+                    g.FillRectangle(tb, 0, 0, cw, ch);
+                }
+            }
+            else g.Clear(Theme.BgMain);
 
             if (currentBeat >= beats.Count) return;
 
             var beat = beats[currentBeat];
 
-            // 绘制地面（面板增高至210，地面相应上移）
+            // 绘制地面（使用缓存画刷和画笔）
             int floorY = ch - 260;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 0, floorY, cw, 260);
-            g.DrawLine(new Pen(Color.FromArgb(60, 50, 40), 2), 0, floorY, cw, floorY);
+            g.FillRectangle(floorBrush, 0, floorY, cw, 260);
+            g.DrawLine(floorLinePen, 0, floorY, cw, floorY);
 
             // 中心线
             int cx = cw / 2;

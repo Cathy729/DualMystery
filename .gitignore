@@ -2,7 +2,7 @@ bin/
 obj/
 .vs/
 packages/
-bgm1.mp3
-bgm2.mp3
-conan_theme.mp3
-truth.mp3
+/bgm1.mp3
+/bgm2.mp3
+/conan_theme.mp3
+/truth.mp3

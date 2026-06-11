@@ -37,37 +37,41 @@ namespace DualMystery
         private void InitializeCustomUI()
         {
             this.Text = $"{_playerIdentity} 的电话";
-            this.BackColor = Color.FromArgb(253, 245, 230);
+            this.BackColor = Theme.BgMain;
             this.ClientSize = new Size(420, 360);
             this.StartPosition = FormStartPosition.Manual;
             if (_playerIdentity == "A") this.Location = new Point(100, 100);
             else this.Location = new Point(850, 100);
 
-            Color darkBrown = Color.FromArgb(92, 64, 51);
-
             Label lblTitle = new Label
             {
-                Text = "☎ 壁挂电话",
-                Font = new Font("Georgia", 14f),
-                ForeColor = darkBrown,
+                Text = Theme.DecorateTitle("☎ 壁挂电话"),
+                Font = Theme.GetFont(14f),
+                ForeColor = Theme.Accent,
                 Dock = DockStyle.Top,
                 Height = 36,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblTitle);
 
+            // 标题分隔线
+            this.Controls.Add(Theme.CreateTitleSeparator());
+
             Panel pnlBottom = new Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 55,
-                BackColor = this.BackColor
+                BackColor = Theme.BgMain
             };
+            Theme.StylePanelWithBorder(pnlBottom);
 
             txtInput = new TextBox
             {
                 Location = new Point(10, 12),
                 Width = 160,
-                Font = new Font(this.Font.FontFamily, 10f)
+                BackColor = Theme.BgInput,
+                ForeColor = Theme.TextMain,
+                Font = Theme.GetFont(10f)
             };
 
             btnSend = new Button
@@ -76,10 +80,9 @@ namespace DualMystery
                 Location = new Point(180, 10),
                 Width = 65,
                 Height = 30,
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = darkBrown,
-                Font = new Font(this.Font.FontFamily, 10f)
+                Font = Theme.GetFont(10f)
             };
+            Theme.StyleButton(btnSend);
             btnSend.Click += BtnSend_Click;
 
             btnShareClue = new Button
@@ -88,10 +91,9 @@ namespace DualMystery
                 Location = new Point(255, 10),
                 Width = 95,
                 Height = 30,
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = darkBrown,
-                Font = new Font(this.Font.FontFamily, 10f)
+                Font = Theme.GetFont(10f)
             };
+            Theme.StyleButton(btnShareClue);
             btnShareClue.Click += BtnShareClue_Click;
 
             btnHangUp = new Button
@@ -100,10 +102,9 @@ namespace DualMystery
                 Location = new Point(360, 10),
                 Width = 65,
                 Height = 30,
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = darkBrown,
-                Font = new Font(this.Font.FontFamily, 10f)
+                Font = Theme.GetFont(10f)
             };
+            Theme.StyleButton(btnHangUp);
             btnHangUp.Click += BtnHangUp_Click;
 
             pnlBottom.Controls.Add(txtInput);
@@ -115,15 +116,16 @@ namespace DualMystery
             rtbChat = new RichTextBox
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Courier New", 10f),
-                ForeColor = darkBrown,
-                BackColor = this.BackColor,
+                Font = Theme.GetFont(10f),
+                ForeColor = Theme.TextMain,
+                BackColor = Color.FromArgb(28, 38, 42),
                 ReadOnly = true,
                 BorderStyle = BorderStyle.None,
                 ScrollBars = RichTextBoxScrollBars.Vertical,
                 HideSelection = false,
                 WordWrap = true
             };
+            Theme.ApplyTextureBackground(rtbChat, Theme.StoneTexture);
             this.Controls.Add(rtbChat);
             rtbChat.BringToFront();
 
@@ -169,7 +171,7 @@ namespace DualMystery
 
             if (shareable.Count == 0)
             {
-                MessageBox.Show("还没有线索可分享", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                PixelMessageBox.Show("还没有线索可分享", "提示");
                 return;
             }
 
@@ -207,42 +209,4 @@ namespace DualMystery
         }
     }
 
-    public class FormSelectClue : Form
-    {
-        public Clue SelectedClue { get; private set; }
-        private ComboBox cmbClues;
-
-        public FormSelectClue(List<Clue> clues)
-        {
-            this.Text = "分享线索";
-            this.Size = new Size(300, 150);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-
-            Label lbl = new Label { Text = "请选择你要分享的线索：", Location = new Point(20, 15), AutoSize = true };
-
-            cmbClues = new ComboBox
-            {
-                Location = new Point(20, 40),
-                Width = 240,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                DisplayMember = "Name",
-                DataSource = clues
-            };
-
-            Button btnOk = new Button { Text = "确定", Location = new Point(80, 75), DialogResult = DialogResult.OK };
-            btnOk.Click += (s, e) => { SelectedClue = cmbClues.SelectedItem as Clue; };
-
-            Button btnCancel = new Button { Text = "取消", Location = new Point(170, 75), DialogResult = DialogResult.Cancel };
-
-            this.Controls.Add(lbl);
-            this.Controls.Add(cmbClues);
-            this.Controls.Add(btnOk);
-            this.Controls.Add(btnCancel);
-            this.AcceptButton = btnOk;
-            this.CancelButton = btnCancel;
-        }
-    }
 }

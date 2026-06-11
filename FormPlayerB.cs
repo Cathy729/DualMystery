@@ -44,18 +44,30 @@ namespace DualMystery
         private GameClient gameClient;
 
         // 缓存 GDI 对象，避免 Paint 中反复创建
-        private Font itemFont = new Font("Georgia", 9);
-        private Font dialogueFont = new Font("Georgia", 10);
-        private SolidBrush bgBrush = new SolidBrush(Color.FromArgb(35, 35, 38));
+        private Font itemFont = Theme.GetFont(9f);
+        private Font dialogueFont = Theme.GetFont(10f);
+        private SolidBrush bgBrush = new SolidBrush(Theme.BgDark);
 
         // 装饰动画
         private int animFrame = 0;
+
+        // 鼠标悬停高亮
+        private int hoveredItemIndex = -1;
+
+        // 点击反馈动画
+        private int feedbackItemIndex = -1;
+        private Timer tmrFeedback;
 
         public FormPlayerB()
         {
             InitializeComponent();
             GenerateCharacterBitmaps(out charIdle, out charStomp);
             GenerateNPCBitmaps(out npcEdgar, out npcMorris);
+
+            // 点击反馈计时器（必须在 InitializeCustomUI 之前初始化，避免 Paint 事件触发时 tmrFeedback 为 null）
+            tmrFeedback = new Timer { Interval = 500 };
+            tmrFeedback.Tick += (s, e) => { tmrFeedback.Stop(); feedbackItemIndex = -1; canvas.Invalidate(); };
+
             InitializeCustomUI();
             BuildScene();
             BuildNPCs();
@@ -69,7 +81,7 @@ namespace DualMystery
             gameClient.OnCallEstablished += PhoneManager_OnCallEstablished;
             gameClient.OnCallEnded += PhoneManager_OnCallEnded;
             gameClient.OnRingTimeout += PhoneManager_OnRingTimeout;
-            gameClient.OnError += (msg) => Invoke(new Action(() => MessageBox.Show(msg, "网络错误")));
+            gameClient.OnError += (msg) => Invoke(new Action(() => PixelMessageBox.Show(msg, "网络错误")));
             gameClient.Connect("127.0.0.1", GameServer.PORT, "B");
 
             this.Load += FormPlayerB_Load;
@@ -83,77 +95,21 @@ namespace DualMystery
         // ========== 生成小人 ==========
         private void GenerateCharacterBitmaps(out Bitmap f1, out Bitmap f2)
         {
-            Bitmap b1 = new Bitmap(16, 16), b2 = new Bitmap(16, 16);
-            Color skin = Color.FromArgb(255, 224, 189), body = Color.DarkRed, pants = Color.FromArgb(40, 40, 40);
-            using (Graphics g1 = Graphics.FromImage(b1), g2 = Graphics.FromImage(b2))
-            {
-                g1.Clear(Color.Transparent); g2.Clear(Color.Transparent);
-                using (Brush sb = new SolidBrush(skin), bb = new SolidBrush(body), pb = new SolidBrush(pants))
-                {
-                    g1.FillRectangle(sb, 4, 2, 8, 6); g2.FillRectangle(sb, 4, 2, 8, 6);
-                    g1.FillRectangle(Brushes.White, 6, 3, 2, 2); g1.FillRectangle(Brushes.Black, 7, 3, 1, 2);
-                    g1.FillRectangle(Brushes.White, 10, 3, 2, 2); g1.FillRectangle(Brushes.Black, 11, 3, 1, 2);
-                    g2.FillRectangle(Brushes.White, 6, 3, 2, 2); g2.FillRectangle(Brushes.Black, 7, 3, 1, 2);
-                    g2.FillRectangle(Brushes.White, 10, 3, 2, 2); g2.FillRectangle(Brushes.Black, 11, 3, 1, 2);
-                    g1.FillRectangle(bb, 5, 8, 6, 6); g2.FillRectangle(bb, 5, 8, 6, 6);
-                    g1.FillRectangle(pb, 6, 14, 3, 2); g1.FillRectangle(pb, 9, 14, 3, 2);
-                    g2.FillRectangle(pb, 5, 14, 3, 2); g2.FillRectangle(pb, 10, 14, 3, 2);
-                }
-            }
-            f1 = new Bitmap(48, 48); f2 = new Bitmap(48, 48);
-            using (Graphics g1 = Graphics.FromImage(f1), g2 = Graphics.FromImage(f2))
-            {
-                g1.InterpolationMode = InterpolationMode.NearestNeighbor;
-                g2.InterpolationMode = InterpolationMode.NearestNeighbor;
-                g1.DrawImage(b1, new Rectangle(0, 0, 48, 48), new Rectangle(0, 0, 16, 16), GraphicsUnit.Pixel);
-                g2.DrawImage(b2, new Rectangle(0, 0, 48, 48), new Rectangle(0, 0, 16, 16), GraphicsUnit.Pixel);
-            }
-            b1.Dispose(); b2.Dispose();
+            f1 = PixelCharacters.CreatePlayerB_Idle();
+            f2 = PixelCharacters.CreatePlayerB_Stomp();
         }
 
         private void GenerateNPCBitmaps(out Bitmap edgar, out Bitmap morris)
         {
-            edgar = new Bitmap(48, 48); morris = new Bitmap(48, 48);
-            Bitmap bE = new Bitmap(16, 16), bM = new Bitmap(16, 16);
-            Color skin = Color.FromArgb(255, 224, 189);
-            Color suit = Color.FromArgb(50, 50, 80); // 埃德加深蓝西装
-            Color butler = Color.FromArgb(80, 80, 90); // 莫里斯管家服
-            using (Graphics g1 = Graphics.FromImage(bE), g2 = Graphics.FromImage(bM))
-            {
-                g1.Clear(Color.Transparent); g2.Clear(Color.Transparent);
-                using (Brush sb = new SolidBrush(skin), sub = new SolidBrush(suit), bub = new SolidBrush(butler))
-                {
-                    // 埃德加
-                    g1.FillRectangle(sb, 4, 2, 8, 6);
-                    g1.FillRectangle(Brushes.White, 6, 3, 2, 2); g1.FillRectangle(Brushes.Black, 7, 3, 1, 2);
-                    g1.FillRectangle(Brushes.White, 10, 3, 2, 2); g1.FillRectangle(Brushes.Black, 11, 3, 1, 2);
-                    g1.FillRectangle(sub, 5, 8, 6, 6);
-                    g1.FillRectangle(Brushes.Black, 6, 14, 3, 2);
-                    g1.FillRectangle(Brushes.Black, 9, 14, 3, 2);
-                    // 莫里斯
-                    g2.FillRectangle(sb, 4, 2, 8, 6);
-                    g2.FillRectangle(Brushes.White, 6, 3, 2, 2); g2.FillRectangle(Brushes.Black, 7, 3, 1, 2);
-                    g2.FillRectangle(Brushes.White, 10, 3, 2, 2); g2.FillRectangle(Brushes.Black, 11, 3, 1, 2);
-                    g2.FillRectangle(bub, 5, 8, 6, 6);
-                    g2.FillRectangle(Brushes.Black, 6, 14, 3, 2);
-                    g2.FillRectangle(Brushes.Black, 9, 14, 3, 2);
-                }
-            }
-            using (Graphics g1 = Graphics.FromImage(edgar), g2 = Graphics.FromImage(morris))
-            {
-                g1.InterpolationMode = InterpolationMode.NearestNeighbor;
-                g2.InterpolationMode = InterpolationMode.NearestNeighbor;
-                g1.DrawImage(bE, new Rectangle(0, 0, 48, 48), new Rectangle(0, 0, 16, 16), GraphicsUnit.Pixel);
-                g2.DrawImage(bM, new Rectangle(0, 0, 48, 48), new Rectangle(0, 0, 16, 16), GraphicsUnit.Pixel);
-            }
-            bE.Dispose(); bM.Dispose();
+            edgar  = PixelCharacters.CreateEdgar();
+            morris = PixelCharacters.CreateMorris();
         }
 
         // ========== UI ==========
         private void InitializeCustomUI()
         {
             this.Text = "走廊";
-            this.BackColor = Color.FromArgb(45, 45, 48);
+            this.BackColor = Theme.BgMain;
             this.ClientSize = new Size(800, 600);
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(800, 0);
@@ -161,48 +117,61 @@ namespace DualMystery
 
             Label lblTitle = new Label
             {
-                Text = "🚪 走廊",
-                Font = new Font("Georgia", 16f),
-                ForeColor = Color.FromArgb(201, 169, 110),
+                Text = Theme.DecorateTitle("🚪 走  廊"),
+                Font = Theme.GetFont(16f),
+                ForeColor = Theme.Accent,
                 Dock = DockStyle.Top,
                 Height = 40,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblTitle);
 
+            // 标题分隔线
+            this.Controls.Add(Theme.CreateTitleSeparator());
+
             Label lblHint = new Label
             {
                 Text = "方向键移动 | P键调查/对话/拨打电话",
-                Font = new Font("Georgia", 9f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(240, 240, 200),
-                BackColor = Color.FromArgb(180, 40, 40, 40),
+                Font = Theme.GetFont(9f),
+                ForeColor = Theme.TextMain,
+                BackColor = Color.FromArgb(180, Theme.BgPanel),
                 AutoSize = true,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Padding = new Padding(8, 2, 8, 2)
             };
-            lblHint.Location = new Point((this.ClientSize.Width - lblHint.PreferredWidth) / 2, lblTitle.Bottom + 2);
+            lblHint.Location = new Point((this.ClientSize.Width - lblHint.PreferredWidth) / 2, lblTitle.Bottom + 4);
             this.Controls.Add(lblHint);
 
-            Panel rightPanel = new Panel { Width = 200, Dock = DockStyle.Right, BackColor = Color.FromArgb(35, 35, 40) };
+            Panel rightPanel = new Panel { Width = 200, Dock = DockStyle.Right, BackColor = Theme.BgPanel };
+            Theme.ApplyTextureBackground(rightPanel, Theme.WoodTexture);
+            Theme.StylePanelWithBorder(rightPanel);
 
             Label lblStory = new Label
             {
                 Text = "📜 走廊侦探\n照片、当票、钥匙、日历…\n询问埃德加和莫里斯。",
                 Dock = DockStyle.Top,
                 Height = 60,
-                BackColor = Color.FromArgb(45, 45, 48),
-                ForeColor = Color.LightGray,
-                Font = new Font("Georgia", 9f)
+                BackColor = Theme.BgDark,
+                ForeColor = Theme.TextMain,
+                Font = Theme.GetFont(9f)
             };
             rightPanel.Controls.Add(lblStory);
 
-            GroupBox gbNotes = new GroupBox { Text = "线索笔记", Height = 150, Dock = DockStyle.Top, ForeColor = Color.White };
-            lstCluesB = new ListBox { Dock = DockStyle.Fill, BackColor = Color.FromArgb(45, 45, 48), ForeColor = Color.White, BorderStyle = BorderStyle.None };
+            GroupBox gbNotes = new GroupBox { Text = "线索笔记", Height = 150, Dock = DockStyle.Top, ForeColor = Theme.Accent, BackColor = Theme.BgPanel };
+            Theme.StyleGroupBoxPixel(gbNotes);
+            lstCluesB = new ListBox { Dock = DockStyle.Fill };
+            Theme.StyleListBox(lstCluesB);
+            Theme.ApplyTextureBackground(lstCluesB, Theme.WoodTexture);
+            lstCluesB.MouseClick += (s, ev) => ShowItemDetail(lstCluesB);
             gbNotes.Controls.Add(lstCluesB);
             rightPanel.Controls.Add(gbNotes);
 
-            GroupBox gbTimeline = new GroupBox { Text = "时间线", Height = 150, Dock = DockStyle.Top, ForeColor = Color.White };
-            lstTimeline = new ListBox { Dock = DockStyle.Fill, BackColor = Color.FromArgb(45, 45, 48), ForeColor = Color.FromArgb(201, 169, 110), BorderStyle = BorderStyle.None, Font = new Font("Georgia", 9f) };
+            GroupBox gbTimeline = new GroupBox { Text = "时间线", Height = 150, Dock = DockStyle.Top, ForeColor = Theme.Accent, BackColor = Theme.BgPanel };
+            Theme.StyleGroupBoxPixel(gbTimeline);
+            lstTimeline = new ListBox { Dock = DockStyle.Fill };
+            Theme.StyleListBox(lstTimeline);
+            Theme.ApplyTextureBackground(lstTimeline, Theme.WoodTexture);
+            lstTimeline.MouseClick += (s, ev) => ShowItemDetail(lstTimeline);
             gbTimeline.Controls.Add(lstTimeline);
             rightPanel.Controls.Add(gbTimeline);
 
@@ -211,18 +180,18 @@ namespace DualMystery
                 Text = "🔍 指认真凶",
                 Dock = DockStyle.Top,
                 Height = 40,
-                BackColor = Color.FromArgb(184, 115, 51),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Georgia", 11f, FontStyle.Bold)
+                Font = Theme.GetFont(11f)
             };
+            Theme.StyleButton(btnAccuse);
             btnAccuse.Click += BtnAccuse_Click;
             rightPanel.Controls.Add(btnAccuse);
 
             this.Controls.Add(rightPanel);
 
-            canvas = new PictureBox { Dock = DockStyle.Fill, BackColor = Color.FromArgb(24, 26, 30) };
+            canvas = new PictureBox { Dock = DockStyle.Fill, BackColor = Theme.BgDark };
             canvas.Paint += Canvas_Paint;
+            canvas.MouseMove += Canvas_MouseMove;
+            canvas.MouseLeave += (s, e2) => { hoveredItemIndex = -1; canvas.Invalidate(); };
             canvas.Click += (s, e2) => { if (!string.IsNullOrEmpty(dialogueText) && !isLastDialogue) { dialogueText = null; isLastDialogue = false; canvas.Invalidate(); } };
             this.Controls.Add(canvas);
             lblHint.Parent = canvas;
@@ -281,6 +250,44 @@ namespace DualMystery
                     }
                 }
             };
+        }
+
+        // ========== 鼠标悬停检测 ==========
+        private void Canvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            int vw = canvas.Width, vh = canvas.Height;
+            float ox = playerPos.X - vw / 2f;
+            float oy = playerPos.Y - vh / 2f;
+            ox = Math.Max(0, Math.Min(ox, mapWidth - vw));
+            oy = Math.Max(0, Math.Min(oy, mapHeight - vh));
+
+            int prev = hoveredItemIndex;
+            hoveredItemIndex = -1;
+
+            for (int i = 0; i < sceneItems.Count; i++)
+            {
+                var item = sceneItems[i];
+                int sx = item.Rect.X - (int)ox;
+                int sy = item.Rect.Y - (int)oy;
+                Rectangle screenRect = new Rectangle(sx, sy, item.Rect.Width, item.Rect.Height);
+                if (screenRect.Contains(e.Location))
+                {
+                    hoveredItemIndex = i;
+                    break;
+                }
+            }
+
+            if (prev != hoveredItemIndex)
+                canvas.Invalidate();
+        }
+
+        /// <summary>触发调查成功反馈动画（✓ 图标 500ms）</summary>
+        private void TriggerFeedback(int itemIndex)
+        {
+            feedbackItemIndex = itemIndex;
+            tmrFeedback.Stop();
+            tmrFeedback.Start();
+            canvas.Invalidate();
         }
 
         // ========== 移动 ==========
@@ -434,7 +441,8 @@ namespace DualMystery
                 if (clue != null)
                 {
                     if (!lstCluesB.Items.Contains(clue.Name)) lstCluesB.Items.Add(clue.Name);
-                    MessageBox.Show(clue.Description, clue.Name);
+                    TriggerFeedback(sceneItems.IndexOf(item));
+                    PixelMessageBox.Show(clue.Description, clue.Name);
                 }
                 else System.Media.SystemSounds.Beep.Play();
             }
@@ -445,7 +453,7 @@ namespace DualMystery
 
         private void BtnAccuse_Click(object sender, EventArgs e)
         {
-            if (hasAccused) { MessageBox.Show("你已经指认过了，请等待对方。"); return; }
+            if (hasAccused) { PixelMessageBox.Show("你已经指认过了，请等待对方。"); return; }
             string[] suspects = { "埃德加", "莫里斯", "贝蒂", "格雷医生" };
             using (Form f = new Form())
             {
@@ -471,11 +479,13 @@ namespace DualMystery
             tmrProgress = new Timer { Interval = 30 }; tmrProgress.Tick += TmrProgress_Tick;
             tmrBubble = new Timer { Interval = 1500 }; tmrBubble.Tick += (s, e) => { tmrBubble.Stop(); lblBubble.Visible = false; };
 
-            pnlIncoming = new Panel { Size = new Size(160, 80), BackColor = Color.AntiqueWhite, BorderStyle = BorderStyle.FixedSingle, Visible = false };
-            lblIncoming = new Label { Text = "有来电", Location = new Point(5, 5), AutoSize = true, ForeColor = Color.Black };
+            pnlIncoming = new Panel { Size = new Size(160, 80), BackColor = Theme.BgPanel, BorderStyle = BorderStyle.FixedSingle, Visible = false };
+            lblIncoming = new Label { Text = "有来电", Location = new Point(5, 5), AutoSize = true, ForeColor = Theme.TextMain };
             btnAccept = new Button { Text = "接听", Size = new Size(60, 30), Location = new Point(10, 30) };
             btnDecline = new Button { Text = "拒绝", Size = new Size(60, 30), Location = new Point(80, 30) };
-            pgbTimeout = new Panel { Size = new Size(160, 5), Location = new Point(0, 75), BackColor = Color.Brown };
+            Theme.StyleButton(btnAccept);
+            Theme.StyleButton(btnDecline);
+            pgbTimeout = new Panel { Size = new Size(160, 5), Location = new Point(0, 75), BackColor = Theme.Border };
             btnAccept.Click += (s, e) => { gameClient.AcceptCall("B"); };
             btnDecline.Click += (s, e) => { gameClient.DeclineCall("B"); pnlIncoming.Visible = false; StopRingingUI(); };
             pnlIncoming.Controls.Add(lblIncoming); pnlIncoming.Controls.Add(btnAccept); pnlIncoming.Controls.Add(btnDecline); pnlIncoming.Controls.Add(pgbTimeout);
@@ -484,7 +494,7 @@ namespace DualMystery
             pnlIncoming.Location = new Point((this.ClientSize.Width - 160) / 2, this.ClientSize.Height / 2 - 40);
             pnlIncoming.BringToFront();
 
-            lblBubble = new Label { Text = "无人接听...", ForeColor = Color.White, BackColor = Color.Black, Visible = false, AutoSize = true };
+            lblBubble = new Label { Text = "无人接听...", ForeColor = Theme.TextMain, BackColor = Theme.BgDark, Visible = false, AutoSize = true };
             this.Controls.Add(lblBubble);
             lblBubble.Location = new Point((this.ClientSize.Width - lblBubble.Width) / 2, pnlIncoming.Top - 30);
             lblBubble.BringToFront();
@@ -552,7 +562,7 @@ namespace DualMystery
             // 防止两个客户端同时弹窗
             if (GameManager.SafeMessageShown) return;
             GameManager.SafeMessageShown = true;
-            MessageBox.Show("书房传来了金属响声，保险箱打开了！遗嘱和举报信已自动记录。", "保险箱已开");
+            PixelMessageBox.Show("书房传来了金属响声，保险箱打开了！遗嘱和举报信已自动记录。", "保险箱已开");
         }
         private void GameClient_OnAccusationResult(string accA, string accB, bool bothCorrect)
         {
@@ -583,7 +593,7 @@ namespace DualMystery
                 if (!GameManager.ResultMessageShown)
                 {
                     GameManager.ResultMessageShown = true;
-                    MessageBox.Show(
+                    PixelMessageBox.Show(
                         "两位侦探指认结果不一致，请重新沟通后再次指认。",
                         "指认失败");
                 }
@@ -609,15 +619,29 @@ namespace DualMystery
             tmrProgress?.Stop();
             tmrBubble?.Stop();
             tmrDialogue?.Stop();
+            tmrFeedback?.Stop();
             gameLoop?.Dispose();
             tmrAnimate?.Dispose();
             tmrTimeout?.Dispose();
             tmrProgress?.Dispose();
             tmrBubble?.Dispose();
             tmrDialogue?.Dispose();
+            tmrFeedback?.Dispose();
             itemFont?.Dispose();
             dialogueFont?.Dispose();
             bgBrush?.Dispose();
+        }
+
+        /// <summary>点击线索列表或时间线项时弹出详情</summary>
+        private void ShowItemDetail(ListBox lb)
+        {
+            if (lb.SelectedItem == null) return;
+            string selectedText = lb.SelectedItem.ToString();
+            var clue = GameManager.AllClues.FirstOrDefault(c => c.Name == selectedText);
+            if (clue != null)
+                PixelMessageBox.Show(clue.Description, clue.Name);
+            else
+                PixelMessageBox.Show(selectedText, "时间线事件");
         }
 
         private class SceneItem

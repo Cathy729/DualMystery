@@ -20,7 +20,7 @@ namespace DualMystery
         private void InitializeCustomUI()
         {
             this.Text = "双线谜案";
-            this.BackColor = Color.FromArgb(43, 58, 66);
+            this.BackColor = Theme.BgMain;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.ClientSize = new Size(800, 600);
             this.KeyPreview = true;
@@ -28,22 +28,25 @@ namespace DualMystery
             // 标题
             lblTitle = new Label
             {
-                Text = "双线谜案",
-                Font = new Font("Georgia", 28f),
-                ForeColor = Color.FromArgb(245, 240, 230),
+                Text = Theme.DecorateTitle("双 线 谜 案"),
+                Font = Theme.GetFont(28f),
+                ForeColor = Theme.Accent,
                 Dock = DockStyle.Top,
                 Height = 80,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             this.Controls.Add(lblTitle);
 
+            // 标题分隔线
+            this.Controls.Add(Theme.CreateTitleSeparator());
+
             // 故事背景
             lblStory = new Label
             {
                 Text = "1930年代，古怪的收藏家霍华德被刺死在自己的书房中，\n房门反锁，警方派遣两位侦探分别进入书房和走廊调查。\n两人唯一的联络工具是一台老式壁挂电话……",
-                Font = new Font("Georgia", 11f),
-                ForeColor = Color.FromArgb(201, 169, 110),
-                BackColor = Color.FromArgb(35, 48, 54),
+                Font = Theme.GetFont(11f),
+                ForeColor = Theme.Accent,
+                BackColor = Theme.BgPanel,
                 AutoSize = false,
                 Size = new Size(600, 80),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -55,25 +58,19 @@ namespace DualMystery
             btnStudy = new Button
             {
                 Text = "进入书房 (侦探A)",
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(58, 76, 84),
-                ForeColor = Color.FromArgb(245, 240, 230),
-                FlatAppearance = { BorderColor = Color.FromArgb(184, 115, 51) },
-                Font = new Font(this.Font.FontFamily, 14f),
+                Font = Theme.GetFont(14f),
                 Size = new Size(200, 50)
             };
+            Theme.StyleButton(btnStudy);
             btnStudy.Click += BtnStudy_Click;
 
             btnCorridor = new Button
             {
                 Text = "进入走廊 (侦探B)",
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(58, 76, 84),
-                ForeColor = Color.FromArgb(245, 240, 230),
-                FlatAppearance = { BorderColor = Color.FromArgb(184, 115, 51) },
-                Font = new Font(this.Font.FontFamily, 14f),
+                Font = Theme.GetFont(14f),
                 Size = new Size(200, 50)
             };
+            Theme.StyleButton(btnCorridor);
             btnCorridor.Click += BtnCorridor_Click;
 
             // 居中布局

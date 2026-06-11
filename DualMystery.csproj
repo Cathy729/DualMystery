@@ -92,13 +92,22 @@
       <DependentUpon>FormPlayerB.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FormSelectClue.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="GameClient.cs" />
     <Compile Include="GameManager.cs" />
     <Compile Include="GameServer.cs" />
     <Compile Include="PhoneManager.cs" />
+    <Compile Include="PixelCharacters.cs" />
     <Compile Include="PixelIcons.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="PixelMessageBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Theme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Resources\PressStart2P.ttf" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

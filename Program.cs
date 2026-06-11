@@ -17,6 +17,9 @@ namespace DualMystery
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            // 初始化全局主题（加载像素字体）
+            Theme.Initialize();
+
             // 启动 TCP 游戏服务器（后台线程）
             var server = new GameServer();
             server.Start();

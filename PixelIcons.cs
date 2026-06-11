@@ -19,24 +19,10 @@ namespace DualMystery
             return result;
         }
 
-        /// <summary>用像素点阵创建图标，支持阴影和高光</summary>
-        private static Bitmap BuildIcon(Color[,] pixels)
-        {
-            int h = pixels.GetLength(0), w = pixels.GetLength(1);
-            Bitmap bmp = new Bitmap(w, h);
-            for (int y = 0; y < h; y++)
-                for (int x = 0; x < w; x++)
-                    if (pixels[y, x].A > 0)
-                        bmp.SetPixel(x, y, pixels[y, x]);
-            return bmp;
-        }
+        private static int C(int v) => Math.Max(0, Math.Min(255, v));
+        private static Color S(Color c, float f) => Color.FromArgb(c.A, C((int)(c.R * f)), C((int)(c.G * f)), C((int)(c.B * f)));
 
-        private static Color Shade(Color c, float factor) =>
-            Color.FromArgb(c.A,
-                Clamp((int)(c.R * factor)), Clamp((int)(c.G * factor)), Clamp((int)(c.B * factor)));
-        private static int Clamp(int v) => Math.Max(0, Math.Min(255, v));
-
-        // ==================== 线索图标（精致化 + 阴影高光） ====================
+        // ==================== 线索图标 ====================
 
         public static Bitmap CreateKnife()
         {
@@ -44,20 +30,27 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 刀身阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 120, 120)), 4, 2, 3, 10);
-                // 刀身高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(220, 220, 230)), 4, 1, 1, 10);
-                // 刀身主体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 180, 190)), 5, 1, 2, 10);
-                // 刀柄
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 60, 30)), 3, 0, 5, 2);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 80, 40)), 3, 0, 3, 1);
-                // 护手
-                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 140, 80)), 2, 1, 7, 1);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 180, 100)), 2, 1, 3, 1);
-                // 刀尖高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(240, 240, 255)), 4, 1, 1, 1);
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 50, 40)), 5, 4, 3, 11);
+                // 刀柄 — 木纹
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 65, 35)), 4, 0, 4, 4);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 80, 45)), 4, 0, 2, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 50, 25)), 6, 2, 2, 2);
+                // 护手 — 黄铜
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 150, 80)), 3, 3, 6, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 180, 100)), 3, 3, 3, 1);
+                // 刀身
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 185, 195)), 5, 5, 3, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 205, 215)), 5, 5, 1, 8);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(150, 155, 165)), 7, 5, 1, 8);
+                // 刀尖
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 195, 205)), 6, 3, 1, 2);
+                // 刀刃高光
+                g.FillRectangle(new SolidBrush(Color.FromArgb(230, 235, 245)), 5, 6, 1, 2);
+                // 字母 M
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 40, 20)), 5, 1, 2, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 40, 20)), 6, 2, 1, 1);
             }
             return ScaleUp(bmp);
         }
@@ -68,19 +61,23 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 信封阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 170, 150)), 3, 4, 12, 10);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 155, 130)), 4, 5, 10, 9);
                 // 信封主体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(250, 240, 220)), 2, 3, 12, 10);
-                // 信封高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 245)), 2, 3, 3, 10);
-                // 边框
-                g.DrawRectangle(new Pen(Color.FromArgb(160, 140, 120)), 2, 3, 12, 10);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(248, 238, 210)), 3, 4, 10, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 250, 235)), 3, 4, 3, 9);
+                // 信封边框
+                g.DrawRectangle(new Pen(Color.FromArgb(180, 160, 130)), 3, 4, 10, 9);
+                // 封口三角
+                Point[] flap = { new Point(8, 4), new Point(3, 8), new Point(13, 8) };
+                g.FillPolygon(new SolidBrush(Color.FromArgb(240, 225, 190)), flap);
+                g.DrawPolygon(new Pen(Color.FromArgb(180, 160, 130)), flap);
                 // 封蜡
-                g.FillEllipse(new SolidBrush(Color.FromArgb(200, 30, 30)), 6, 5, 4, 4);
-                g.FillEllipse(new SolidBrush(Color.FromArgb(240, 60, 60)), 7, 6, 2, 2);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(185, 30, 35)), 6, 6, 4, 4);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(220, 50, 55)), 7, 7, 2, 2);
                 // 烧焦边缘
-                g.FillRectangle(new SolidBrush(Color.FromArgb(40, 25, 10)), 13, 3, 1, 10);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 35, 15)), 12, 4, 1, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 55, 25)), 11, 5, 1, 2);
             }
             return ScaleUp(bmp);
         }
@@ -91,18 +88,25 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 封面阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 40, 20)), 4, 3, 10, 12);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 40, 25)), 3, 3, 10, 12);
+                // 封底
+                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 55, 30)), 3, 2, 9, 12);
                 // 封面
-                g.FillRectangle(new SolidBrush(Color.FromArgb(139, 69, 19)), 3, 2, 10, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(145, 70, 35)), 2, 2, 9, 12);
                 // 封面高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 90, 40)), 3, 2, 2, 12);
-                // 内页
-                g.FillRectangle(new SolidBrush(Color.FromArgb(245, 240, 230)), 5, 3, 6, 10);
-                // 页缝
-                g.DrawLine(new Pen(Color.FromArgb(80, 60, 40)), 8, 3, 8, 13);
-                // 书脊高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 110, 50)), 3, 3, 1, 10);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 95, 55)), 2, 2, 2, 12);
+                // 书脊
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 45, 25)), 2, 2, 1, 12);
+                // 内页（侧面看）
+                g.FillRectangle(new SolidBrush(Color.FromArgb(245, 240, 230)), 6, 3, 4, 10);
+                g.DrawLine(new Pen(Color.FromArgb(200, 195, 185)), 7, 3, 7, 13);
+                g.DrawLine(new Pen(Color.FromArgb(200, 195, 185)), 9, 3, 9, 13);
+                // 封面十字架装饰
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 170, 100)), 3, 4, 3, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 170, 100)), 4, 3, 1, 5);
+                // 书签红丝带
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 40, 40)), 4, 8, 1, 6);
             }
             return ScaleUp(bmp);
         }
@@ -113,18 +117,30 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 机身阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(20, 20, 20)), 5, 5, 8, 9);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(30, 25, 20)), 5, 6, 8, 9);
                 // 机身
-                g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 4, 4, 8, 9);
-                // 机身顶部高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 55, 50)), 4, 4, 8, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 42, 35)), 4, 5, 8, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 60, 50)), 4, 5, 8, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(35, 28, 22)), 4, 12, 8, 2);
+                // 边框
+                g.DrawRectangle(new Pen(Color.FromArgb(30, 25, 20)), 4, 5, 8, 9);
                 // 听筒
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 75, 70)), 3, 1, 10, 4);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 95, 90)), 3, 1, 10, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 3, 1, 10, 5);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(55, 48, 40)), 3, 1, 10, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(30, 25, 20)), 3, 4, 10, 1);
+                // 听筒凹槽
+                g.FillRectangle(new SolidBrush(Color.FromArgb(25, 20, 18)), 4, 2, 2, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(25, 20, 18)), 10, 2, 2, 2);
                 // 转盘
-                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 45, 40)), 7, 6, 2, 4);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 75, 65)), 7, 6, 2, 1);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(60, 50, 40)), 7, 6, 3, 5);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(80, 68, 55)), 7, 6, 3, 2);
+                // 转盘孔
+                g.FillEllipse(new SolidBrush(Color.FromArgb(30, 25, 20)), 8, 7, 1, 1);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(30, 25, 20)), 8, 9, 1, 1);
+                // 听筒线
+                g.DrawLine(new Pen(Color.FromArgb(40, 35, 30)), 8, 6, 8, 14);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(40, 35, 30)), 7, 14, 2, 1);
             }
             return ScaleUp(bmp);
         }
@@ -135,22 +151,31 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 箱体阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 60, 60)), 3, 3, 12, 12);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(65, 65, 65)), 3, 4, 12, 11);
                 // 箱体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(105, 105, 105)), 2, 2, 12, 12);
-                // 顶部高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 140, 140)), 2, 2, 12, 3);
-                // 边框
-                g.DrawRectangle(new Pen(Color.FromArgb(40, 40, 40)), 2, 2, 12, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(95, 100, 100)), 2, 3, 12, 11);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 125, 125)), 2, 3, 12, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 75, 75)), 2, 11, 12, 3);
+                // 边框铆钉
+                g.DrawRectangle(new Pen(Color.FromArgb(50, 50, 50)), 2, 3, 12, 11);
+                for (int ty = 4; ty < 14; ty += 3)
+                    for (int tx = 3; tx < 14; tx += 3)
+                        g.FillEllipse(new SolidBrush(Color.FromArgb(160, 160, 160)), tx, ty, 2, 2);
                 // 转盘
+                g.FillEllipse(new SolidBrush(Color.FromArgb(80, 80, 80)), 5, 5, 6, 6);
                 g.FillEllipse(new SolidBrush(Color.FromArgb(180, 180, 180)), 6, 6, 4, 4);
                 g.FillEllipse(new SolidBrush(Color.FromArgb(220, 220, 220)), 7, 7, 2, 2);
+                // 转盘刻度
+                g.DrawLine(new Pen(Color.FromArgb(160, 160, 160)), 8, 5, 8, 7);
+                // 把手
+                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 130, 130)), 11, 7, 2, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 180, 180)), 11, 7, 2, 1);
+                // 合页
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 70, 70)), 1, 5, 1, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 70, 70)), 1, 10, 1, 3);
                 // 门缝
-                g.DrawLine(new Pen(Color.FromArgb(60, 60, 60)), 8, 2, 8, 14);
-                // 铰链
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 80, 80)), 1, 4, 1, 3);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 80, 80)), 1, 10, 1, 3);
+                g.DrawLine(new Pen(Color.FromArgb(50, 50, 50)), 8, 3, 8, 14);
             }
             return ScaleUp(bmp);
         }
@@ -162,18 +187,24 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 190, 180)), 3, 3, 12, 12);
-                // 主体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(250, 245, 240)), 2, 2, 12, 12);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 255)), 2, 2, 5, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 180, 170)), 3, 3, 12, 12);
+                // 手帕主体 — 折叠感
+                g.FillRectangle(new SolidBrush(Color.FromArgb(250, 245, 238)), 2, 2, 12, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 252, 248)), 2, 2, 6, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(235, 228, 220)), 2, 10, 12, 4);
                 // 边框
                 g.DrawRectangle(new Pen(Color.FromArgb(200, 190, 180)), 2, 2, 12, 12);
-                // 血迹
-                g.FillEllipse(new SolidBrush(Color.FromArgb(160, 20, 20)), 7, 6, 4, 3);
-                g.FillEllipse(new SolidBrush(Color.FromArgb(200, 30, 30)), 8, 7, 2, 2);
-                // 字母 EB
-                g.DrawString("EB", new Font("Arial", 3, FontStyle.Bold), new SolidBrush(Color.FromArgb(120, 20, 20)), 3, 5);
+                // 花边装饰
+                g.DrawLine(new Pen(Color.FromArgb(210, 180, 180)), 3, 3, 10, 10);
+                g.DrawLine(new Pen(Color.FromArgb(210, 180, 180)), 13, 13, 3, 3);
+                // 血迹（更大，更逼真）
+                g.FillEllipse(new SolidBrush(Color.FromArgb(155, 20, 20)), 6, 5, 5, 4);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(185, 25, 25)), 7, 6, 3, 2);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(130, 15, 15)), 8, 8, 3, 2);
+                // 绣字 EB
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 35, 35)), 3, 9, 3, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 35, 35)), 3, 11, 3, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 35, 35)), 3, 9, 1, 3);
             }
             return ScaleUp(bmp);
         }
@@ -185,20 +216,23 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 180, 180)), 3, 5, 12, 10);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 160, 160)), 3, 5, 12, 10);
                 // 日历本体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(245, 245, 245)), 2, 4, 12, 10);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 255)), 2, 4, 4, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(248, 248, 248)), 2, 4, 12, 10);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 255)), 2, 4, 5, 2);
                 // 边框
-                g.DrawRectangle(new Pen(Color.FromArgb(40, 40, 40)), 2, 4, 12, 10);
+                g.DrawRectangle(new Pen(Color.FromArgb(60, 60, 60)), 2, 4, 12, 10);
                 // 红色标题区
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 30, 30)), 2, 4, 12, 3);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(230, 60, 60)), 2, 4, 6, 1);
-                // 日期
+                g.FillRectangle(new SolidBrush(Color.FromArgb(195, 30, 30)), 2, 4, 12, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(225, 50, 50)), 2, 4, 6, 1);
+                // 日期数字
                 g.DrawString("25", new Font("Arial", 4, FontStyle.Bold), Brushes.White, 5, 3);
                 // 红色圆圈标记
-                g.DrawEllipse(new Pen(Color.FromArgb(220, 30, 30), 1), 3, 7, 10, 6);
+                g.DrawEllipse(new Pen(Color.FromArgb(220, 30, 30), 1), 5, 5, 8, 8);
+                g.DrawEllipse(new Pen(Color.FromArgb(240, 60, 60), 0.5f), 6, 6, 6, 6);
+                // 挂环
+                g.FillEllipse(new SolidBrush(Color.FromArgb(180, 180, 180)), 6, 2, 3, 3);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(220, 220, 220)), 7, 3, 1, 1);
             }
             return ScaleUp(bmp);
         }
@@ -210,21 +244,23 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                using (Pen shadowPen = new Pen(Color.FromArgb(120, 90, 20), 2))
+                using (Pen sp = new Pen(Color.FromArgb(100, 75, 20), 2))
                 {
-                    g.DrawEllipse(shadowPen, 5, 3, 6, 6);
-                    g.DrawLine(shadowPen, 9, 9, 9, 15);
+                    g.DrawEllipse(sp, 5, 3, 6, 6);
+                    g.DrawLine(sp, 9, 9, 9, 15);
                 }
-                // 主体
-                using (Pen pen = new Pen(Color.FromArgb(184, 134, 11), 2))
-                {
-                    g.DrawEllipse(pen, 4, 2, 6, 6);
-                    g.DrawLine(pen, 8, 8, 8, 14);
-                    g.DrawLine(pen, 8, 12, 11, 14);
-                    g.DrawLine(pen, 8, 14, 6, 15);
-                }
-                // 高光点
-                g.FillEllipse(new SolidBrush(Color.FromArgb(240, 210, 100)), 6, 4, 2, 2);
+                // 钥匙头（圆环）
+                g.FillEllipse(new SolidBrush(Color.FromArgb(200, 160, 40)), 4, 2, 6, 6);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(230, 190, 60)), 5, 3, 4, 3);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(60, 45, 15)), 6, 4, 2, 2);
+                // 钥匙杆
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 160, 40)), 6, 8, 2, 7);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(230, 190, 60)), 6, 8, 1, 5);
+                // 钥匙齿
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 160, 40)), 8, 11, 2, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 160, 40)), 8, 14, 2, 1);
+                // 高光
+                g.FillRectangle(new SolidBrush(Color.FromArgb(250, 220, 120)), 6, 2, 1, 1);
             }
             return ScaleUp(bmp);
         }
@@ -235,24 +271,29 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 相框阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 130, 100)), 3, 3, 12, 12);
-                // 相框
-                g.FillRectangle(new SolidBrush(Color.FromArgb(222, 184, 135)), 2, 2, 12, 12);
-                // 相框高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(240, 210, 165)), 2, 2, 4, 12);
-                // 边框
-                g.DrawRectangle(new Pen(Color.FromArgb(100, 70, 40)), 2, 2, 12, 12);
-                // 照片内区域
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 190, 170)), 4, 4, 8, 8);
-                // 人像1
-                g.FillEllipse(new SolidBrush(Color.FromArgb(50, 40, 30)), 5, 5, 3, 3);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 40, 30)), 6, 8, 2, 3);
-                // 人像2
-                g.FillEllipse(new SolidBrush(Color.FromArgb(50, 40, 30)), 9, 5, 3, 3);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 40, 30)), 10, 8, 2, 3);
-                // 背面铅笔字
-                g.DrawString("19", new Font("Arial", 3, FontStyle.Italic), new SolidBrush(Color.FromArgb(80, 80, 80)), 7, 12);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 110, 80)), 3, 3, 12, 12);
+                // 金色相框
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 170, 110)), 2, 2, 12, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(235, 200, 140)), 2, 2, 5, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 140, 80)), 10, 3, 4, 10);
+                // 内边框
+                g.DrawRectangle(new Pen(Color.FromArgb(90, 60, 30)), 2, 2, 12, 12);
+                g.DrawRectangle(new Pen(Color.FromArgb(130, 95, 50)), 3, 3, 10, 10);
+                // 照片内容
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 175, 150)), 4, 4, 8, 8);
+                // 人物1
+                g.FillEllipse(new SolidBrush(Color.FromArgb(55, 45, 35)), 5, 5, 3, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(55, 45, 35)), 6, 8, 2, 3);
+                // 人物2
+                g.FillEllipse(new SolidBrush(Color.FromArgb(55, 45, 35)), 9, 6, 3, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(55, 45, 35)), 10, 9, 2, 2);
+                // 铅笔字 19
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 70, 70)), 7, 12, 2, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 70, 70)), 7, 12, 1, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 70, 70)), 9, 12, 1, 2);
+                // 相框支架
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 140, 80)), 8, 14, 1, 2);
             }
             return ScaleUp(bmp);
         }
@@ -263,18 +304,27 @@ namespace DualMystery
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 桌面阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 70, 50)), 3, 5, 12, 8);
-                // 桌面
-                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 82, 45)), 2, 4, 12, 8);
-                // 桌面高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 100, 60)), 2, 4, 12, 2);
+                // 阴影
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 55, 30)), 4, 6, 10, 7);
+                // 桌面（木纹）
+                g.FillRectangle(new SolidBrush(Color.FromArgb(150, 85, 45)), 2, 4, 12, 7);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 105, 60)), 2, 4, 12, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(135, 75, 40)), 2, 9, 12, 2);
+                // 木纹纹理
+                g.DrawLine(new Pen(Color.FromArgb(130, 75, 40)), 3, 6, 12, 6);
+                g.DrawLine(new Pen(Color.FromArgb(130, 75, 40)), 4, 8, 13, 8);
                 // 桌腿
-                g.DrawLine(new Pen(Color.FromArgb(40, 40, 40)), 2, 8, 14, 8);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 40, 30)), 4, 11, 2, 4);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 40, 30)), 10, 11, 2, 4);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(90, 60, 35)), 3, 10, 3, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(90, 60, 35)), 10, 10, 3, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(105, 75, 45)), 3, 10, 2, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(105, 75, 45)), 10, 10, 2, 2);
+                // 横梁
+                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 55, 30)), 3, 13, 10, 1);
+                // 抽屉
+                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 80, 42)), 6, 8, 5, 2);
+                g.DrawRectangle(new Pen(Color.FromArgb(110, 65, 35)), 6, 8, 5, 2);
                 // 抽屉把手
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 160, 80)), 6, 9, 4, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 180, 100)), 7, 8, 3, 1);
             }
             return ScaleUp(bmp);
         }
@@ -286,29 +336,30 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 200, 180)), 3, 3, 12, 12);
-                // 纸
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 239, 213)), 2, 2, 12, 12);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 250, 235)), 2, 2, 5, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 185, 165)), 3, 3, 12, 12);
+                // 纸张
+                g.FillRectangle(new SolidBrush(Color.FromArgb(253, 237, 210)), 2, 2, 12, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 248, 232)), 2, 2, 6, 3);
                 // 边框
-                g.DrawRectangle(new Pen(Color.FromArgb(120, 100, 80)), 2, 2, 12, 12);
-                // 文字行（模拟手写）
-                for (int i = 0; i < 5; i++)
+                g.DrawRectangle(new Pen(Color.FromArgb(140, 120, 90)), 2, 2, 12, 12);
+                // 手写文字行
+                for (int i = 0; i < 6; i++)
                 {
-                    int y = 5 + i * 2;
-                    using (Pen p = new Pen(Color.FromArgb(80, 60, 40)))
-                        g.DrawLine(p, 4, y, 9 + (i % 3), y);
+                    int y = 4 + i * 2;
+                    int w = 7 + (i * 3) % 5;
+                    using (Pen p = new Pen(Color.FromArgb(70, 50, 35)))
+                        g.DrawLine(p, 4, y, 4 + w, y);
                 }
                 // 撕边效果
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 180, 150)), 13, 2, 1, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 170, 145)), 13, 2, 1, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 170, 145)), 12, 3, 1, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 170, 145)), 13, 10, 1, 4);
             }
             return ScaleUp(bmp);
         }
 
         // ==================== 场景装饰图标 ====================
 
-        /// <summary>壁炉（含火焰动画帧）</summary>
         public static Bitmap[] CreateFireplaceFrames()
         {
             Bitmap[] frames = new Bitmap[3];
@@ -319,53 +370,75 @@ namespace DualMystery
                 {
                     g.Clear(Color.Transparent);
                     // 炉体阴影
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(60, 50, 40)), 3, 4, 11, 11);
-                    // 炉体
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(120, 100, 80)), 2, 3, 12, 12);
-                    // 炉体高光
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(150, 130, 110)), 2, 3, 12, 2);
-                    // 炉口
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(30, 20, 10)), 4, 6, 8, 8);
-                    // 火焰（每帧不同）
-                    Color[] flameColors = { Color.FromArgb(255, 180, 30), Color.FromArgb(255, 120, 10), Color.FromArgb(255, 60, 5) };
-                    int[] flameH = { 5 + fi, 6 - fi % 2, 4 + (fi + 1) % 3 };
-                    for (int i = 0; i < 3; i++)
-                        g.FillRectangle(new SolidBrush(flameColors[i]), 6 + i, 8 + 2 - flameH[i] / 2, 2, flameH[i]);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(60, 48, 35)), 3, 4, 11, 11);
+                    // 炉体外框 — 砖石纹理
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(130, 100, 80)), 2, 3, 12, 12);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(155, 125, 100)), 2, 3, 12, 2);
+                    // 砖缝
+                    g.DrawLine(new Pen(Color.FromArgb(100, 80, 70)), 2, 9, 14, 9);
+                    g.DrawLine(new Pen(Color.FromArgb(100, 80, 70)), 2, 12, 14, 12);
+                    // 炉口（深色凹陷）
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(25, 18, 12)), 4, 6, 8, 8);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(15, 10, 8)), 5, 7, 6, 7);
+                    // 炉口拱形
+                    g.DrawArc(new Pen(Color.FromArgb(100, 80, 70), 1), 4, 2, 8, 6, 180, 180);
+                    // 多层火焰
+                    int fy = 8 + (fi % 2);
+                    Color fire1 = Color.FromArgb(255, 200, 40);
+                    Color fire2 = Color.FromArgb(255, 140, 15);
+                    Color fire3 = Color.FromArgb(255, 70, 5);
+                    g.FillRectangle(new SolidBrush(fire1), 7, fy - 1, 2, 5);
+                    g.FillRectangle(new SolidBrush(fire2), 6, fy + 1, 4, 3);
+                    g.FillRectangle(new SolidBrush(fire3), 7, fy + 3, 2, 2);
                     // 火焰高光
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 240, 180)), 7, 7, 1, 2);
-                    // 炉台装饰
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(140, 120, 100)), 1, 2, 14, 1);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 240, 150)), 7, fy - 1, 2, 1);
+                    // 火星
+                    int sparkX = 6 + (fi * 2) % 5;
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 200, 80)), sparkX, fy - 2, 1, 1);
+                    // 炉台
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(140, 115, 90)), 1, 2, 14, 2);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(165, 140, 110)), 1, 2, 14, 1);
                 }
                 frames[fi] = bmp;
             }
             return frames;
         }
+
         private static Bitmap cachedFireplace = null;
         public static Bitmap CreateFireplace() { if (cachedFireplace == null) cachedFireplace = ScaleUp(CreateFireplaceFrames()[0]); return cachedFireplace; }
 
-        /// <summary>吊灯（含摆动帧）</summary>
         public static Bitmap[] CreateChandelierFrames()
         {
             Bitmap[] frames = new Bitmap[3];
             for (int fi = 0; fi < 3; fi++)
             {
-                int sway = fi - 1; // -1, 0, 1
+                int sway = fi - 1;
                 Bitmap bmp = new Bitmap(16, 16);
                 using (Graphics g = Graphics.FromImage(bmp))
                 {
                     g.Clear(Color.Transparent);
+                    // 天花板底座
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(80, 70, 60)), 5, 0, 6, 2);
                     // 链条
-                    g.DrawLine(new Pen(Color.FromArgb(100, 90, 70)), 8, 0, 8 + sway, 3);
-                    // 灯体阴影
-                    g.FillEllipse(new SolidBrush(Color.FromArgb(80, 70, 50)), 4 + sway, 7, 9, 5);
-                    // 灯体
-                    g.FillEllipse(new SolidBrush(Color.FromArgb(200, 180, 120)), 3 + sway, 6, 10, 6);
-                    // 高光
-                    g.FillEllipse(new SolidBrush(Color.FromArgb(240, 220, 160)), 5 + sway, 6, 4, 3);
-                    // 灯泡发光
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 250, 200)), 5 + sway, 8, 6, 3);
-                    // 顶部装饰
-                    g.FillRectangle(new SolidBrush(Color.FromArgb(160, 140, 100)), 6, 2, 4, 2);
+                    g.DrawLine(new Pen(Color.FromArgb(110, 100, 85)), 8, 2, 8 + sway, 3);
+                    g.DrawLine(new Pen(Color.FromArgb(110, 100, 85)), 8 + sway, 3, 8 + sway, 4);
+                    // 灯架横梁
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(150, 130, 100)), 2 + sway, 4, 12, 1);
+                    // 左灯臂
+                    g.DrawLine(new Pen(Color.FromArgb(150, 130, 100)), 2 + sway, 5, 3 + sway, 8);
+                    // 右灯臂
+                    g.DrawLine(new Pen(Color.FromArgb(150, 130, 100)), 13 + sway, 5, 12 + sway, 8);
+                    // 中灯
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(180, 160, 120)), 6 + sway, 7, 4, 3);
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(220, 200, 150)), 6 + sway, 7, 4, 1);
+                    // 左灯泡
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 245, 180)), 2 + sway, 8, 2, 2);
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(255, 245, 200, 140)), 1 + sway, 7, 4, 4);
+                    // 右灯泡
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 245, 180)), 11 + sway, 8, 2, 2);
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(255, 245, 200, 140)), 10 + sway, 7, 4, 4);
+                    // 整体光晕
+                    g.FillEllipse(new SolidBrush(Color.FromArgb(255, 240, 220, 70)), 4 + sway, 3, 8, 10);
                 }
                 frames[fi] = bmp;
             }
@@ -374,7 +447,6 @@ namespace DualMystery
         private static Bitmap cachedChandelier = null;
         public static Bitmap CreateChandelier() { if (cachedChandelier == null) cachedChandelier = ScaleUp(CreateChandelierFrames()[1]); return cachedChandelier; }
 
-        /// <summary>壁灯</summary>
         public static Bitmap CreateWallLamp()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -382,43 +454,47 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 底座
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 80, 50)), 6, 0, 4, 2);
-                // 灯臂
-                g.DrawLine(new Pen(Color.FromArgb(120, 100, 70), 1), 8, 2, 12, 5);
-                // 灯罩阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 80, 50)), 11, 4, 5, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(90, 75, 55)), 5, 0, 6, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(110, 90, 70)), 6, 0, 4, 1);
+                // 灯臂曲线
+                g.DrawLine(new Pen(Color.FromArgb(100, 85, 65), 2), 8, 1, 13, 5);
+                g.DrawLine(new Pen(Color.FromArgb(120, 100, 75), 1), 8, 1, 13, 5);
                 // 灯罩
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 160, 100)), 10, 3, 6, 7);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 190, 130)), 10, 3, 6, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 150, 110)), 10, 4, 5, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 180, 135)), 10, 4, 5, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(145, 125, 90)), 11, 7, 4, 2);
                 // 灯光
-                g.FillEllipse(new SolidBrush(Color.FromArgb(255, 250, 180, 180)), 9, 7, 8, 6);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(120, 255, 240, 160)), 9, 7, 7, 6);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(200, 255, 220, 100)), 10, 8, 5, 4);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>地毯（大尺寸装饰，返回原始16x16以供拉伸）</summary>
         public static Bitmap CreateCarpet()
         {
             Bitmap bmp = new Bitmap(16, 16);
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 底色
-                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 30, 30)), 0, 0, 16, 16);
-                // 边框花纹
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 20)), 0, 0, 16, 2);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 20)), 0, 14, 16, 2);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 20)), 0, 0, 2, 16);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 20)), 14, 0, 2, 16);
-                // 中心菱形花纹
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 120, 40)), 7, 6, 2, 4);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 120, 40)), 5, 7, 6, 2);
+                // 底色 — 深红
+                g.FillRectangle(new SolidBrush(Color.FromArgb(145, 28, 28)), 0, 0, 16, 16);
+                // 外边框
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 30)), 0, 0, 16, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 30)), 0, 15, 16, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 30)), 0, 0, 1, 16);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 80, 30)), 15, 0, 1, 16);
+                // 内边框
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 140, 50)), 2, 1, 12, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 140, 50)), 2, 14, 12, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 140, 50)), 1, 2, 1, 12);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 140, 50)), 14, 2, 1, 12);
+                // 菱形花纹
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 130, 45)), 8, 7, 1, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 130, 45)), 6, 8, 5, 1);
             }
             return bmp;
         }
 
-        /// <summary>窗帘</summary>
         public static Bitmap CreateCurtain()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -426,61 +502,64 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 50, 70)), 1, 1, 14, 14);
-                // 主体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 70, 90)), 0, 0, 14, 15);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(55, 45, 65)), 1, 1, 14, 14);
+                // 主体 — 深紫红
+                g.FillRectangle(new SolidBrush(Color.FromArgb(110, 75, 95)), 0, 0, 14, 15);
                 // 褶皱高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 100, 120)), 2, 0, 3, 15);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 90, 110)), 9, 0, 3, 15);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 105, 125)), 2, 0, 3, 15);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 95, 115)), 9, 0, 3, 15);
+                // 褶皱暗面
+                g.FillRectangle(new SolidBrush(Color.FromArgb(90, 60, 80)), 6, 1, 2, 14);
                 // 窗帘杆
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 60, 40)), 0, 0, 16, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 55, 35)), 0, 0, 16, 1);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(100, 80, 50)), 0, 0, 1, 1);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(100, 80, 50)), 15, 0, 1, 1);
+                // 束带
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 120, 80)), 6, 10, 4, 1);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>尸体轮廓（粉笔线）</summary>
         public static Bitmap CreateBodyOutline()
         {
             Bitmap bmp = new Bitmap(16, 16);
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                using (Pen p = new Pen(Color.FromArgb(220, 220, 210), 1))
+                using (Pen p = new Pen(Color.FromArgb(225, 225, 215), 1))
                 {
-                    // 头
-                    g.DrawEllipse(p, 5, 1, 4, 4);
-                    // 身体
-                    g.DrawLine(p, 7, 5, 7, 11);
-                    // 手臂
-                    g.DrawLine(p, 7, 6, 3, 9);
-                    g.DrawLine(p, 7, 6, 12, 8);
-                    // 腿
-                    g.DrawLine(p, 7, 11, 4, 15);
-                    g.DrawLine(p, 7, 11, 10, 15);
+                    g.DrawEllipse(p, 4, 1, 5, 5);       // 头
+                    g.DrawLine(p, 6, 6, 6, 12);          // 身体
+                    g.DrawLine(p, 6, 7, 2, 10);          // 左臂
+                    g.DrawLine(p, 6, 7, 11, 9);          // 右臂
+                    g.DrawLine(p, 6, 12, 3, 16);         // 左腿
+                    g.DrawLine(p, 6, 12, 10, 16);        // 右腿
                 }
+                // 头部高光
+                using (Pen hp = new Pen(Color.FromArgb(245, 245, 240), 0.5f))
+                    g.DrawArc(hp, 5, 2, 3, 3, 220, 100);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>血迹</summary>
         public static Bitmap CreateBloodStain()
         {
             Bitmap bmp = new Bitmap(16, 16);
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                Color darkBlood = Color.FromArgb(120, 10, 10);
-                Color midBlood = Color.FromArgb(160, 15, 15);
-                // 不规则血迹
-                g.FillEllipse(new SolidBrush(darkBlood), 3, 4, 6, 5);
-                g.FillEllipse(new SolidBrush(midBlood), 4, 3, 4, 4);
-                g.FillEllipse(new SolidBrush(Color.FromArgb(100, 8, 8)), 6, 6, 7, 4);
-                g.FillRectangle(new SolidBrush(darkBlood), 7, 5, 2, 2);
+                Color dk = Color.FromArgb(110, 10, 10);
+                Color mid = Color.FromArgb(150, 15, 15);
+                Color lt = Color.FromArgb(180, 20, 20);
+                g.FillEllipse(new SolidBrush(dk), 3, 5, 7, 5);
+                g.FillEllipse(new SolidBrush(mid), 4, 4, 5, 4);
+                g.FillEllipse(new SolidBrush(lt), 5, 5, 3, 3);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(95, 8, 8)), 7, 6, 5, 3);
+                g.FillRectangle(new SolidBrush(dk), 6, 5, 1, 3);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>花瓶</summary>
         public static Bitmap CreateVase()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -488,24 +567,28 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillEllipse(new SolidBrush(Color.FromArgb(60, 60, 70)), 3, 12, 10, 4);
-                // 瓶身
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 100, 140)), 5, 4, 6, 9);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 140, 180)), 5, 4, 2, 8);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(50, 50, 60)), 3, 12, 10, 4);
+                // 瓶身 — 青花瓷风格
+                Color baseColor = Color.FromArgb(70, 95, 145);
+                g.FillRectangle(new SolidBrush(baseColor), 4, 4, 8, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 125, 175)), 5, 4, 3, 8);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(50, 75, 120)), 9, 5, 3, 7);
                 // 瓶颈
-                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 85, 120)), 6, 2, 4, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 80, 130)), 5, 2, 6, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(85, 110, 155)), 5, 2, 3, 2);
                 // 瓶口
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 75, 110)), 5, 1, 6, 2);
-                // 花纹
-                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 180, 200)), 8, 7, 2, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(55, 75, 120)), 4, 1, 8, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(75, 95, 140)), 4, 1, 8, 1);
+                // 青花装饰
+                g.FillRectangle(new SolidBrush(Color.FromArgb(40, 55, 100)), 7, 6, 2, 5);
+                g.DrawLine(new Pen(Color.FromArgb(40, 55, 100)), 5, 8, 11, 8);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 175, 210)), 6, 6, 1, 1);
             }
             return ScaleUp(bmp);
         }
 
         // ==================== NPC 道具图标 ====================
 
-        /// <summary>医药箱（格雷医生）</summary>
         public static Bitmap CreateMedicalBag()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -513,45 +596,55 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillEllipse(new SolidBrush(Color.FromArgb(40, 40, 40)), 2, 13, 12, 3);
-                // 箱体
-                g.FillRectangle(new SolidBrush(Color.FromArgb(60, 50, 40)), 3, 5, 10, 8);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(80, 70, 55)), 3, 5, 10, 2);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(35, 35, 35)), 2, 13, 12, 3);
+                // 箱体 — 深棕皮
+                g.FillRectangle(new SolidBrush(Color.FromArgb(85, 55, 40)), 3, 4, 10, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(105, 72, 55)), 3, 4, 10, 3);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(70, 42, 30)), 4, 10, 8, 3);
+                // 边框金属角
+                g.DrawRectangle(new Pen(Color.FromArgb(50, 35, 25)), 3, 4, 10, 9);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 140, 80)), 2, 3, 2, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 140, 80)), 12, 3, 2, 2);
                 // 红十字
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 30, 30)), 7, 7, 2, 4);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 30, 30)), 5, 8, 6, 2);
-                // 把手
-                g.FillRectangle(new SolidBrush(Color.FromArgb(100, 80, 60)), 6, 3, 4, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 35, 35)), 7, 6, 2, 5);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(210, 35, 35)), 5, 7, 6, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(240, 55, 55)), 6, 6, 1, 1);
+                // 提手
+                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 100, 70)), 5, 2, 6, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(150, 120, 85)), 6, 2, 4, 1);
                 // 扣锁
-                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 160, 80)), 7, 6, 2, 1);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 180, 80)), 7, 5, 2, 2);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>扫帚（贝蒂）</summary>
         public static Bitmap CreateBroom()
         {
             Bitmap bmp = new Bitmap(16, 16);
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Transparent);
-                // 柄
-                using (Pen p = new Pen(Color.FromArgb(180, 140, 90), 1))
-                    g.DrawLine(p, 8, 1, 8, 9);
-                // 柄高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 160, 110)), 8, 1, 1, 4);
+                // 柄 — 木纹
+                using (Pen p = new Pen(Color.FromArgb(185, 145, 95), 2))
+                    g.DrawLine(p, 8, 0, 8, 9);
+                using (Pen hp = new Pen(Color.FromArgb(210, 170, 120), 1))
+                    g.DrawLine(hp, 8, 0, 8, 5);
+                // 金属箍
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 165, 160)), 6, 8, 4, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(200, 195, 190)), 7, 8, 2, 1);
                 // 刷头
-                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 110, 60)), 4, 9, 8, 3);
-                g.FillRectangle(new SolidBrush(Color.FromArgb(120, 90, 50)), 4, 11, 8, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(145, 115, 65)), 4, 9, 8, 2);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(125, 95, 50)), 4, 10, 8, 2);
                 // 刷毛
-                for (int i = 0; i < 5; i++)
-                    g.DrawLine(new Pen(Color.FromArgb(100, 75, 40)), 5 + i * 2, 12, 5 + i * 2, 14);
+                for (int i = 0; i < 6; i++)
+                    g.DrawLine(new Pen(Color.FromArgb(100, 75, 40)), 4 + i * 2, 11, 4 + i * 2, 15);
+                // 刷毛渐变
+                for (int i = 0; i < 6; i++)
+                    g.DrawLine(new Pen(Color.FromArgb(130, 105, 65)), 4 + i * 2, 11, 4 + i * 2, 12);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>酒杯（埃德加）</summary>
         public static Bitmap CreateWineGlass()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -559,22 +652,27 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillEllipse(new SolidBrush(Color.FromArgb(30, 25, 20)), 5, 13, 6, 3);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(25, 20, 18)), 5, 13, 6, 3);
                 // 底座
-                g.FillEllipse(new SolidBrush(Color.FromArgb(150, 150, 160)), 5, 12, 6, 2);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(160, 160, 170)), 5, 12, 6, 2);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(190, 190, 200)), 6, 12, 2, 1);
                 // 杯柱
-                g.FillRectangle(new SolidBrush(Color.FromArgb(150, 150, 160)), 7, 8, 2, 5);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 160, 170)), 7, 7, 2, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(180, 180, 190)), 7, 7, 1, 3);
                 // 杯身
-                g.FillRectangle(new SolidBrush(Color.FromArgb(140, 30, 50, 180)), 4, 3, 8, 6);
-                // 高光
-                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 255, 80)), 5, 4, 1, 4);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(160, 35, 55)), 4, 2, 8, 6);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(190, 50, 70)), 5, 2, 4, 5);
+                // 红酒
+                g.FillRectangle(new SolidBrush(Color.FromArgb(130, 20, 35, 180)), 5, 3, 6, 4);
+                g.FillRectangle(new SolidBrush(Color.FromArgb(170, 30, 45, 150)), 6, 3, 3, 2);
                 // 杯口
-                g.DrawLine(new Pen(Color.FromArgb(180, 150, 160)), 4, 3, 12, 3);
+                g.DrawLine(new Pen(Color.FromArgb(190, 160, 170)), 4, 2, 12, 2);
+                // 高光
+                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 255, 80)), 5, 3, 1, 3);
             }
             return ScaleUp(bmp);
         }
 
-        /// <summary>钥匙串（莫里斯）</summary>
         public static Bitmap CreateKeyRing()
         {
             Bitmap bmp = new Bitmap(16, 16);
@@ -582,16 +680,21 @@ namespace DualMystery
             {
                 g.Clear(Color.Transparent);
                 // 阴影
-                g.FillEllipse(new SolidBrush(Color.FromArgb(40, 40, 40)), 4, 12, 8, 3);
-                // 环
-                g.DrawEllipse(new Pen(Color.FromArgb(180, 160, 80), 1), 5, 3, 6, 6);
-                g.DrawEllipse(new Pen(Color.FromArgb(200, 180, 100), 0.5f), 6, 4, 4, 4);
-                // 钥匙1
-                g.DrawLine(new Pen(Color.FromArgb(160, 130, 40), 1), 8, 5, 8, 12);
-                g.DrawLine(new Pen(Color.FromArgb(160, 130, 40), 0.5f), 8, 10, 10, 12);
-                // 钥匙2
-                g.DrawLine(new Pen(Color.FromArgb(140, 110, 30), 1), 6, 6, 6, 13);
-                g.DrawLine(new Pen(Color.FromArgb(140, 110, 30), 0.5f), 6, 11, 4, 13);
+                g.FillEllipse(new SolidBrush(Color.FromArgb(40, 35, 28)), 4, 12, 8, 4);
+                // 大环
+                g.DrawEllipse(new Pen(Color.FromArgb(185, 160, 80), 1), 5, 2, 6, 6);
+                g.DrawEllipse(new Pen(Color.FromArgb(215, 190, 105), 0.5f), 6, 3, 4, 4);
+                // 钥匙1（大）
+                g.DrawLine(new Pen(Color.FromArgb(170, 140, 45), 1), 8, 4, 8, 12);
+                g.DrawLine(new Pen(Color.FromArgb(170, 140, 45), 0.5f), 8, 10, 10, 12);
+                g.DrawLine(new Pen(Color.FromArgb(170, 140, 45), 0.5f), 8, 12, 7, 14);
+                // 钥匙1 高光
+                g.DrawLine(new Pen(Color.FromArgb(210, 180, 90), 0.3f), 8, 4, 8, 8);
+                // 钥匙2（小）
+                g.DrawLine(new Pen(Color.FromArgb(150, 120, 35), 1), 6, 5, 6, 13);
+                g.DrawLine(new Pen(Color.FromArgb(150, 120, 35), 0.5f), 6, 11, 4, 13);
+                // 钥匙2 高光
+                g.DrawLine(new Pen(Color.FromArgb(190, 155, 70), 0.3f), 6, 5, 6, 9);
             }
             return ScaleUp(bmp);
         }

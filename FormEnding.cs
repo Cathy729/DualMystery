@@ -191,7 +191,7 @@ namespace DualMystery
             canvas = new PictureBox
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.Black
+                BackColor = Theme.BgMain
             };
             canvas.Paint += Canvas_Paint;
             this.Controls.Add(canvas);
@@ -201,13 +201,13 @@ namespace DualMystery
             {
                 Dock = DockStyle.Bottom,
                 Height = 180,
-                BackColor = Color.FromArgb(230, 12, 12, 18)
+                BackColor = Color.FromArgb(230, 25, 35, 38)
             };
             lblSpeaker = new Label
             {
                 AutoSize = true,
-                ForeColor = Color.FromArgb(201, 169, 110),
-                Font = new Font("Georgia", 12f, FontStyle.Bold),
+                ForeColor = Theme.Accent,
+                Font = Theme.GetFont(12f),
                 Text = ""
             };
             // 动作/场景高亮标签 — 黄底黑字
@@ -216,7 +216,7 @@ namespace DualMystery
                 AutoSize = true,
                 BackColor = Color.FromArgb(240, 200, 0),
                 ForeColor = Color.Black,
-                Font = new Font("Georgia", 11f, FontStyle.Bold),
+                Font = Theme.GetFont(11f),
                 Text = "",
                 Visible = false,
                 Padding = new Padding(6, 2, 6, 2)
@@ -224,8 +224,8 @@ namespace DualMystery
             lblDialogue = new Label
             {
                 AutoSize = false,
-                ForeColor = Color.FromArgb(245, 240, 230),
-                Font = new Font("Georgia", 12f),
+                ForeColor = Theme.TextMain,
+                Font = Theme.GetFont(12f),
                 Text = ""
             };
             pnlDialogue.Controls.Add(lblSpeaker);
@@ -504,7 +504,7 @@ namespace DualMystery
             int cw = canvas.Width, ch = canvas.Height;
 
             // 背景
-            g.Clear(Color.FromArgb(20, 18, 22));
+            g.Clear(Theme.BgMain);
 
             if (currentBeat >= beats.Count) return;
 
@@ -521,12 +521,12 @@ namespace DualMystery
             if (beat.Type == BeatType.FadeIn)
             {
                 // 仅显示标题
-                using (Font tf = new Font("Georgia", 48f, FontStyle.Bold))
+                using (Font tf = Theme.GetFont(48f))
                 {
                     string title = "案 件 告 破";
                     SizeF ts = g.MeasureString(title, tf);
                     int alpha = (int)(fadeAlpha * 255);
-                    using (Brush tb = new SolidBrush(Color.FromArgb(alpha, 201, 169, 110)))
+                    using (Brush tb = new SolidBrush(Color.FromArgb(alpha, Theme.Accent)))
                         g.DrawString(title, tf, tb, cx - ts.Width / 2, ch / 2 - ts.Height);
                 }
                 return;
@@ -568,8 +568,8 @@ namespace DualMystery
             if (beat.Type == BeatType.Finale)
             {
                 int alpha = (int)((1f - animProgress * 0.2f) * 255);
-                using (Font ff = new Font("Georgia", 28f, FontStyle.Bold))
-                using (Brush fb = new SolidBrush(Color.FromArgb(alpha, 201, 169, 110)))
+                using (Font ff = Theme.GetFont(28f))
+                using (Brush fb = new SolidBrush(Color.FromArgb(alpha, Theme.Accent)))
                 {
                     string fin = "—— 双线谜案 · 完 ——";
                     SizeF fs = g.MeasureString(fin, ff);
@@ -577,6 +577,8 @@ namespace DualMystery
                 }
             }
 
+            // ---- 像素双线边框 ----
+            Theme.DrawDoubleLineBorder(g, new Rectangle(0, 0, cw, ch), Theme.BorderDark, Theme.BorderLight);
         }
 
         private void DrawCharacter(Graphics g, Bitmap sprite, int x, int y, string name)
@@ -585,8 +587,8 @@ namespace DualMystery
                 g.DrawImage(sprite, x, y, 96, 96);
             if (!string.IsNullOrEmpty(name))
             {
-                using (Font nf = new Font("Georgia", 8f))
-                using (Brush nb = new SolidBrush(Color.FromArgb(200, 200, 200)))
+                using (Font nf = Theme.GetFont(8f))
+                using (Brush nb = new SolidBrush(Theme.TextMain))
                 {
                     SizeF ns = g.MeasureString(name, nf);
                     g.DrawString(name, nf, nb, x + 48 - ns.Width / 2, y + 96);

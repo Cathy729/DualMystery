@@ -97,12 +97,13 @@ namespace DualMystery
             g.DrawLine(new Pen(Color.FromArgb(40, 30, 20)), hbX + 12, hbY + 7, hbX + 16, hbY + 7);
 
             // ---- 物品 ----
-            using (Font hintFont = new Font("Georgia", 7, FontStyle.Bold))
+            using (Font hintFont = Theme.GetFont(7f))
             using (SolidBrush hintBrush = new SolidBrush(Color.Yellow))
             using (SolidBrush doneBrush = new SolidBrush(Color.Gray))
             {
-                foreach (var item in sceneItems)
+                for (int i = 0; i < sceneItems.Count; i++)
                 {
+                    var item = sceneItems[i];
                     int sx = item.Rect.X - (int)ox, sy = item.Rect.Y - (int)oy;
                     if (sx + item.Rect.Width < 0 || sx > vw || sy + item.Rect.Height < 0 || sy > vh) continue;
                     if (item.Icon != null)
@@ -113,6 +114,24 @@ namespace DualMystery
                         g.DrawRectangle(Pens.Black, sx, sy, item.Rect.Width, item.Rect.Height);
                     }
                     g.DrawString(item.Name, itemFont, Brushes.White, sx, sy - 12);
+
+                    // 鼠标悬停高亮边框
+                    if (i == hoveredItemIndex)
+                    {
+                        using (Pen highlightPen = new Pen(Theme.Accent, 2))
+                            g.DrawRectangle(highlightPen, sx - 2, sy - 2,
+                                item.Rect.Width + 4, item.Rect.Height + 4);
+                        // 像素小箭头指示
+                        DrawPixelArrow(g, sx + item.Rect.Width / 2, sy - 6);
+                    }
+
+                    // 点击反馈 ✓ 图标
+                    if (i == feedbackItemIndex && tmrFeedback != null && tmrFeedback.Enabled)
+                    {
+                        using (Font checkFont = Theme.GetFont(14f))
+                        using (Brush checkBrush = new SolidBrush(Color.LimeGreen))
+                            g.DrawString("✓", checkFont, checkBrush, sx + item.Rect.Width, sy - 10);
+                    }
 
                     // 交互距离视觉提示
                     if (IsNearItem(item))
@@ -153,7 +172,7 @@ namespace DualMystery
             }
 
             // ---- NPC ----
-            using (Font hintFont = new Font("Georgia", 7, FontStyle.Bold))
+            using (Font hintFont = Theme.GetFont(7f))
             using (SolidBrush hintBrush = new SolidBrush(Color.Cyan))
             {
                 foreach (var npc in npcList)
@@ -186,14 +205,32 @@ namespace DualMystery
 
             // ---- 玩家 ----
             int px = (int)(playerPos.X - ox) - 24;
-            int py = (int)(playerPos.Y - oy) - 36;
+            int py = (int)(playerPos.Y - oy) - 60;
             if (isCallingOut && tmrAnimate != null && tmrAnimate.Enabled)
-                g.DrawImage(picCharacterAnimFrame ? charStomp : charIdle, px, py, 48, 48);
+                g.DrawImage(picCharacterAnimFrame ? charStomp : charIdle, px, py, 48, 72);
             else
-                g.DrawImage(charIdle, px, py, 48, 48);
+                g.DrawImage(charIdle, px, py, 48, 72);
 
             // ---- 对话气泡 ----
             DrawDialogueBubble(g, px, py, vw);
+
+            // ---- 像素双线边框 ----
+            Theme.DrawDoubleLineBorder(g, new Rectangle(0, 0, vw, vh), Theme.BorderDark, Theme.BorderLight);
+        }
+
+        /// <summary>绘制像素风格小箭头指示器</summary>
+        private static void DrawPixelArrow(Graphics g, float cx, float topY)
+        {
+            // 倒三角箭头 ▼
+            PointF[] arrow = {
+                new PointF(cx - 4, topY + 4),
+                new PointF(cx + 4, topY + 4),
+                new PointF(cx, topY - 2)
+            };
+            using (Brush ab = new SolidBrush(Theme.Accent))
+                g.FillPolygon(ab, arrow);
+            using (Pen ap = new Pen(Theme.BorderDark, 1))
+                g.DrawPolygon(ap, arrow);
         }
 
         private void DrawDialogueBubble(Graphics g, int px, int py, int vw)
@@ -201,7 +238,7 @@ namespace DualMystery
             if (string.IsNullOrEmpty(dialogueText)) return;
             const int maxBubbleWidth = 280;
             string hint = isLastDialogue ? "鼠标单击 / 按E关闭对话" : "鼠标单击 / 按E继续对话";
-            using (Font hintFont = new Font("Georgia", 7f, FontStyle.Regular))
+            using (Font hintFont = Theme.GetFont(7f))
             {
                 SizeF textSize = g.MeasureString(dialogueText, dialogueFont, maxBubbleWidth);
                 float bubbleW = textSize.Width + 12;
